@@ -1,68 +1,21 @@
 /**
  * Tests der Datenbank-Sicherheitsregeln (Row Level Security) und Server-Funktionen.
- * Läuft ohne Docker/Internet mit PGlite (echtes Postgres in Node).
- * Supabase-Teile (auth.users, auth.uid(), Rollen) werden hier nachgebildet.
+ * Läuft ohne Docker/Internet mit PGlite (echtes Postgres in Node), siehe helpers.mjs.
  *
  * Start: npm run test:db
  */
-import { PGlite } from '@electric-sql/pglite';
-import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { before, describe, it } from 'node:test';
 
-const MIGRATIONS = join(import.meta.dirname, '..', 'migrations');
+import { createTestDb } from './helpers.mjs';
 
-// Nachbildung der Supabase-Umgebung
-const SUPABASE_STUB = `
-  create schema extensions;
-  create extension pgcrypto schema extensions;
-  create schema auth;
-  create table auth.users (id uuid primary key default gen_random_uuid(), email text);
-  create function auth.uid() returns uuid language sql stable as $$
-    select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
-  $$;
-  create role anon nologin;
-  create role authenticated nologin;
-  grant usage on schema public, auth, extensions to anon, authenticated;
-  grant execute on function auth.uid() to anon, authenticated;
-  alter default privileges in schema public grant all on tables to anon, authenticated;
-  alter default privileges in schema public grant all on sequences to anon, authenticated;
-  alter default privileges in schema public grant execute on functions to anon, authenticated;
-`;
-
-let db;
-
-async function newUser(email) {
-  const { rows } = await db.query('insert into auth.users (email) values ($1) returning id', [email]);
-  return rows[0].id;
-}
-
-/** Führt fn als angemeldeter Nutzer aus (wie ein Aufruf aus der App). */
-async function as(userId, fn) {
-  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [userId ?? '']);
-  await db.exec(userId ? 'set role authenticated' : 'set role anon');
-  try {
-    return await fn();
-  } finally {
-    await db.exec('reset role');
-    await db.query(`select set_config('request.jwt.claim.sub', '', false)`);
-  }
-}
-
-const q = async (sql, params) => (await db.query(sql, params)).rows;
-const one = async (sql, params) => (await q(sql, params))[0];
+let q, one, newUser, as;
 
 describe('Datenbank-Sicherheit (M2)', () => {
   let admin, member, stranger, groupId, inviteCode;
 
   before(async () => {
-    db = await PGlite.create({ extensions: { pgcrypto } });
-    await db.exec(SUPABASE_STUB);
-    for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) {
-      await db.exec(readFileSync(join(MIGRATIONS, file), 'utf8'));
-    }
+    ({ q, one, newUser, as } = await createTestDb());
     admin = await newUser('admin@example.com');
     member = await newUser('member@example.com');
     stranger = await newUser('stranger@example.com');

@@ -48,6 +48,9 @@ export function errorMessage(error: unknown): string {
   if (/not authorized|Email address .* not authorized/i.test(message)) {
     return 'An diese E-Mail-Adresse kann gerade keine Mail geschickt werden (Testbetrieb).';
   }
+  if (/team_players_player_id_fkey|rating_changes_player_id_fkey/i.test(message)) {
+    return 'Dieser Spieler hat schon mitgespielt und kann nicht gelöscht werden. Setz ihn stattdessen auf „inaktiv“.';
+  }
   if (/players_group_name_idx|duplicate key/i.test(message)) {
     return 'Diesen Namen gibt es in der Gruppe schon.';
   }

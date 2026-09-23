@@ -7,9 +7,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, TeamColors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { ErrorText } from '@/components/form';
 import { useGroup, type Player } from '@/lib/group';
 import { formatRating } from '@/lib/ratings';
+import { startSession } from '@/lib/sessions';
 import { useStore } from '@/lib/store';
+import { errorMessage } from '@/lib/supabase';
 import { pickSplit, splitKey, teamStats } from '@/lib/teams';
 
 export default function TeamsScreen() {
@@ -17,6 +20,8 @@ export default function TeamsScreen() {
   const { draw, setDraw } = useStore();
   const { players, current } = useGroup();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!draw || draw.groupId !== current?.id) {
     return (
@@ -63,6 +68,20 @@ export default function TeamsScreen() {
       )
     );
   };
+
+  const play = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const id = await startSession(current!.id, draw.teams);
+      setDraw(null);
+      router.replace({ pathname: '/spieltag/[id]', params: { id } });
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  };
+  const hasEmptyTeam = draw.teams.some((t) => t.length === 0);
 
   const moveHere = (teamIndex: number) => {
     if (selectedId === null) return;
@@ -145,7 +164,24 @@ export default function TeamsScreen() {
           );
         })}
 
-        <BigButton title="🎲 Neu würfeln" onPress={reroll} />
+        <ErrorText message={error} />
+        <BigButton
+          title={busy ? 'Wird gespeichert …' : '✅ Mit diesen Teams spielen'}
+          disabled={busy || hasEmptyTeam}
+          onPress={play}
+        />
+        {hasEmptyTeam && (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+            Jedes Team braucht mindestens einen Spieler.
+          </ThemedText>
+        )}
+        <BigButton
+          title="🎲 Neu würfeln"
+          variant="secondary"
+          style={[styles.moveButton, { borderColor: theme.border }]}
+          disabled={busy}
+          onPress={reroll}
+        />
         <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
           A = Abwehr · S = Sturm (Angriff)
         </ThemedText>

@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/controls';
@@ -9,6 +9,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useGroup, type Player } from '@/lib/group';
 import { formatRating } from '@/lib/ratings';
+import { todaysSession, type SessionSummary } from '@/lib/sessions';
 import { useStore, type TeamCount } from '@/lib/store';
 import { findFairSplits, pickSplit, strength } from '@/lib/teams';
 
@@ -23,11 +24,16 @@ export default function MatchdayScreen() {
   const presentIds = store.presentIdsFor(groupId);
   const teamCount = store.teamCountFor(groupId);
 
-  // Beim Öffnen des Reiters die Spielerliste auffrischen (andere könnten etwas geändert haben)
+  const [today, setToday] = useState<SessionSummary | null>(null);
+
+  // Beim Öffnen des Reiters auffrischen (andere könnten etwas geändert haben)
   useFocusEffect(
     useCallback(() => {
       refreshPlayers().catch(() => {});
-    }, [refreshPlayers])
+      todaysSession(groupId)
+        .then(setToday)
+        .catch(() => setToday(null));
+    }, [refreshPlayers, groupId])
   );
 
   const activePlayers = players
@@ -72,6 +78,25 @@ export default function MatchdayScreen() {
   return (
     <ThemedView style={styles.screen}>
       <View style={styles.content}>
+        {today && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/spieltag/[id]', params: { id: today.id } })}
+            style={({ pressed }) => [
+              styles.todayCard,
+              { borderColor: theme.primary, opacity: pressed ? 0.7 : 1 },
+            ]}>
+            <View style={styles.flex}>
+              <ThemedText style={styles.todayTitle}>Heutiger Spieltag</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {today.result_count === 0
+                  ? 'Noch kein Ergebnis – hier eintragen'
+                  : `${today.result_count} Ergebnis${today.result_count === 1 ? '' : 'se'} – öffnen`}
+              </ThemedText>
+            </View>
+            <ThemedText style={[styles.todayTitle, { color: theme.primary }]}>›</ThemedText>
+          </Pressable>
+        )}
         <ThemedText type="smallBold">Anzahl Teams</ThemedText>
         <View style={styles.segment}>
           {TEAM_COUNTS.map((count) => {
@@ -211,4 +236,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   name: { fontSize: 18, fontWeight: 600 },
+  todayCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 64,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
+  todayTitle: { fontSize: 18, fontWeight: 700 },
 });

@@ -28,6 +28,10 @@ export default function TabLayout() {
         options={{ title: 'Spieler', headerTitle: `Spieler · ${groupName}`, tabBarIcon: icon('👥') }}
       />
       <Tabs.Screen
+        name="verlauf"
+        options={{ title: 'Verlauf', headerTitle: `Verlauf · ${groupName}`, tabBarIcon: icon('📋') }}
+      />
+      <Tabs.Screen
         name="gruppe"
         options={{ title: 'Gruppe', headerTitle: groupName, tabBarIcon: icon('⚙️') }}
       />
