@@ -53,7 +53,7 @@ type StepperProps = {
 };
 
 /** Plus/Minus-Regler für Stärkewerte (1–11) */
-export function RatingStepper({ label, value, onChange, step = 0.5 }: StepperProps) {
+export function RatingStepper({ label, value, onChange, step = 1 }: StepperProps) {
   const theme = useTheme();
   const change = (delta: number) => onChange(clampRating(value + delta));
 
