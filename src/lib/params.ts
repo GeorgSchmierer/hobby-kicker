@@ -28,3 +28,6 @@ export const RATING_LIMITS = {
   /** Startwert für neue Spieler. */
   default: 6,
 } as const;
+
+/** Öffentliche Adresse der Web-App (für Einladungen und geteilte Teams) */
+export const APP_URL = 'https://hobby-kicker.vercel.app';

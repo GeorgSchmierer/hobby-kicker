@@ -33,6 +33,13 @@ export type Draw = {
   key: string;
 };
 
+/** Nach dem Eintragen eines Ergebnisses: Jubel im Spieltag-Bildschirm anzeigen */
+export type Celebration = {
+  sessionId: string;
+  /** Team-Index (Farbe) des Siegers; null = Unentschieden */
+  winnerIdx: number | null;
+};
+
 const STORAGE_KEY = 'hobby-kicker/v2/matchday';
 const EMPTY: SavedState = { presentIds: {}, teamCount: {} };
 
@@ -40,6 +47,8 @@ type Store = {
   loaded: boolean;
   draw: Draw | null;
   setDraw: (draw: Draw | null) => void;
+  celebration: Celebration | null;
+  setCelebration: (celebration: Celebration | null) => void;
   presentIdsFor: (groupId: string) => string[];
   teamCountFor: (groupId: string) => TeamCount;
   setPresent: (groupId: string, playerId: string, present: boolean) => void;
@@ -53,6 +62,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SavedState>(EMPTY);
   const [loaded, setLoaded] = useState(false);
   const [draw, setDraw] = useState<Draw | null>(null);
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
@@ -94,13 +104,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loaded,
       draw,
       setDraw,
+      celebration,
+      setCelebration,
       presentIdsFor,
       teamCountFor,
       setPresent,
       setPresentIds,
       setTeamCount,
     }),
-    [loaded, draw, presentIdsFor, teamCountFor, setPresent, setPresentIds, setTeamCount]
+    [loaded, draw, celebration, presentIdsFor, teamCountFor, setPresent, setPresentIds, setTeamCount]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

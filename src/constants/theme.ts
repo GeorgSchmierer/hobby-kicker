@@ -34,10 +34,10 @@ export const Colors = {
 
 /** Erkennungsfarben der Teams (Leibchen), in beiden Modi gut sichtbar */
 export const TeamColors = [
-  { name: 'Rot', color: '#E53935' },
-  { name: 'Blau', color: '#1E88E5' },
-  { name: 'Gelb', color: '#F9A825' },
-  { name: 'Lila', color: '#8E24AA' },
+  { name: 'Rot', color: '#E53935', emoji: '🔴' },
+  { name: 'Blau', color: '#1E88E5', emoji: '🔵' },
+  { name: 'Gelb', color: '#F9A825', emoji: '🟡' },
+  { name: 'Lila', color: '#8E24AA', emoji: '🟣' },
 ] as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;

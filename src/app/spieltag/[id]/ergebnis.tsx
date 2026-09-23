@@ -4,11 +4,13 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } fr
 
 import { BigButton } from '@/components/controls';
 import { ErrorText } from '@/components/form';
-import { TeamChip, teamColor } from '@/components/team';
+import { ChanceBar, TeamChip, teamColor } from '@/components/team';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { winChance } from '@/lib/fun';
+import { useGroup } from '@/lib/group';
 import {
   loadSession,
   recordMatch,
@@ -16,6 +18,8 @@ import {
   type Outcome,
   type SessionTeam,
 } from '@/lib/sessions';
+import { useScaleD } from '@/lib/settings';
+import { useStore } from '@/lib/store';
 import { errorMessage } from '@/lib/supabase';
 
 type Mode = 'match' | 'tournament';
@@ -44,6 +48,14 @@ export default function RecordResultScreen() {
 
 function ResultForm({ sessionId, teams }: { sessionId: string; teams: SessionTeam[] }) {
   const theme = useTheme();
+  const { setCelebration } = useStore();
+  const { players } = useGroup();
+  const scaleD = useScaleD();
+  const strengthOf = (team: SessionTeam) =>
+    team.playerIds.reduce((sum, id) => {
+      const p = players.find((x) => x.id === id);
+      return sum + (p ? (p.defense + p.attack) / 2 : 0);
+    }, 0);
   const [mode, setMode] = useState<Mode>('match');
   const [teamA, setTeamA] = useState<SessionTeam | null>(teams[0] ?? null);
   const [teamB, setTeamB] = useState<SessionTeam | null>(teams.length === 2 ? teams[1] : null);
@@ -81,8 +93,14 @@ function ResultForm({ sessionId, teams }: { sessionId: string; teams: SessionTea
           outcome: effectiveOutcome!,
           goals: withGoals ? { a: goalsA, b: goalsB } : null,
         });
+        setCelebration({
+          sessionId,
+          winnerIdx:
+            effectiveOutcome === 'a' ? teamA!.idx : effectiveOutcome === 'b' ? teamB!.idx : null,
+        });
       } else {
         await recordTournamentWinner(sessionId, winner!.id);
+        setCelebration({ sessionId, winnerIdx: winner!.idx });
       }
       router.back();
     } catch (e) {
@@ -167,6 +185,11 @@ function ResultForm({ sessionId, teams }: { sessionId: string; teams: SessionTea
 
             {teamA && teamB && (
               <>
+                <ChanceBar
+                  idxA={teamA.idx}
+                  idxB={teamB.idx}
+                  chanceA={winChance(strengthOf(teamA), strengthOf(teamB), scaleD)}
+                />
                 <View style={styles.section}>
                   <ThemedText type="smallBold">Wie ist es ausgegangen?</ThemedText>
                   <View style={styles.chips}>

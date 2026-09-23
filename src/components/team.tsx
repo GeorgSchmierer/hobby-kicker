@@ -72,3 +72,31 @@ const styles = StyleSheet.create({
   },
   chipText: { fontSize: 17, fontWeight: 700 },
 });
+
+/** Zweifarbiger Balken für die Siegchance zweier Teams: „Rot 58 % ███▒▒ 42 % Blau“ */
+export function ChanceBar({ idxA, idxB, chanceA }: { idxA: number; idxB: number; chanceA: number }) {
+  const pctA = Math.round(chanceA * 100);
+  return (
+    <View style={barStyles.wrap}>
+      <View style={barStyles.labels}>
+        <ThemedText style={[barStyles.label, { color: teamColor(idxA).color }]}>
+          {teamColor(idxA).name} {pctA} %
+        </ThemedText>
+        <ThemedText style={[barStyles.label, { color: teamColor(idxB).color }]}>
+          {100 - pctA} % {teamColor(idxB).name}
+        </ThemedText>
+      </View>
+      <View style={barStyles.bar}>
+        <View style={{ flex: pctA, backgroundColor: teamColor(idxA).color }} />
+        <View style={{ flex: 100 - pctA, backgroundColor: teamColor(idxB).color }} />
+      </View>
+    </View>
+  );
+}
+
+const barStyles = StyleSheet.create({
+  wrap: { gap: Spacing.one },
+  labels: { flexDirection: 'row', justifyContent: 'space-between' },
+  label: { fontSize: 15, fontWeight: 800 },
+  bar: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden' },
+});

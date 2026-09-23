@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { BigButton } from '@/components/controls';
 import { ThemedText } from '@/components/themed-text';
@@ -8,9 +9,14 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, TeamColors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ErrorText } from '@/components/form';
+import { ChanceBar } from '@/components/team';
+import { averageWinChances, formatPercent, funTeamNames, teamsShareText } from '@/lib/fun';
 import { useGroup, type Player } from '@/lib/group';
 import { formatRating } from '@/lib/ratings';
+import { APP_URL } from '@/lib/params';
 import { startSession } from '@/lib/sessions';
+import { useScaleD } from '@/lib/settings';
+import { shareText } from '@/lib/share';
 import { useStore } from '@/lib/store';
 import { errorMessage } from '@/lib/supabase';
 import { pickSplit, splitKey, teamStats } from '@/lib/teams';
@@ -22,6 +28,8 @@ export default function TeamsScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareInfo, setShareInfo] = useState<string | null>(null);
+  const scaleD = useScaleD();
 
   if (!draw || draw.groupId !== current?.id) {
     return (
@@ -40,6 +48,26 @@ export default function TeamsScreen() {
   const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
   const handEdited = splitKey(draw.teams) !== draw.key;
   const selectedTeam = draw.teams.findIndex((t) => t.includes(selectedId ?? ''));
+  const chances = averageWinChances(stats.map((s) => s.total), scaleD);
+  // Lustige Namen hängen an der Zusammensetzung – im Spieltag erscheinen dieselben
+  const funNames = funTeamNames(splitKey(draw.teams), teams.length);
+
+  const share = async () => {
+    const text = teamsShareText({
+      groupName: current!.name,
+      teams: teams.map((team, i) => ({
+        colorName: TeamColors[i].name,
+        emoji: TeamColors[i].emoji,
+        funName: funNames[i],
+        total: stats[i].total,
+        players: team.map((p) => p.name),
+      })),
+      chances,
+      appUrl: APP_URL,
+    });
+    const outcome = await shareText(text);
+    setShareInfo(outcome === 'copied' ? 'Teams kopiert – jetzt z. B. in WhatsApp einfügen.' : null);
+  };
 
   const reroll = () => {
     const split = pickSplit(draw.candidates, splitKey(draw.teams));
@@ -104,6 +132,7 @@ export default function TeamsScreen() {
             {formatRating(spread(stats.map((s) => s.attack)))}
             {handEdited ? ' · von Hand geändert' : ''}
           </ThemedText>
+          {teams.length === 2 && <ChanceBar idxA={0} idxB={1} chanceA={chances[0]} />}
           <ThemedText type="small" themeColor="textSecondary">
             {selectedId
               ? 'Jetzt einen Spieler aus einem anderen Team antippen (tauschen) oder „Hierher verschieben“.'
@@ -126,15 +155,19 @@ export default function TeamsScreen() {
                 </ThemedText>
                 <ThemedText style={styles.teamTotal}>{formatRating(s.total)}</ThemedText>
               </View>
+              <ThemedText style={[styles.funName, { color: colors.color }]}>„{funNames[teamIndex]}“</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 Abwehr {formatRating(s.defense)} · Angriff {formatRating(s.attack)}
+                {teams.length > 2 ? ` · Ø Siegchance ${formatPercent(chances[teamIndex])}` : ''}
               </ThemedText>
 
-              {team.map((player) => {
+              {team.map((player, playerIndex) => {
                 const selected = player.id === selectedId;
                 return (
+                  <Animated.View
+                    key={`${draw.key}-${player.id}`}
+                    entering={FadeInDown.delay((playerIndex * teams.length + teamIndex) * 45).springify()}>
                   <Pressable
-                    key={player.id}
                     accessibilityRole="button"
                     onPress={() => tapPlayer(player.id, teamIndex)}
                     style={[
@@ -149,6 +182,7 @@ export default function TeamsScreen() {
                       A {formatRating(player.defense)} · S {formatRating(player.attack)}
                     </ThemedText>
                   </Pressable>
+                  </Animated.View>
                 );
               })}
 
@@ -173,6 +207,17 @@ export default function TeamsScreen() {
         {hasEmptyTeam && (
           <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
             Jedes Team braucht mindestens einen Spieler.
+          </ThemedText>
+        )}
+        <BigButton
+          title="📤 Teams teilen"
+          variant="secondary"
+          style={[styles.moveButton, { borderColor: theme.border }]}
+          onPress={share}
+        />
+        {shareInfo && (
+          <ThemedText type="small" style={styles.center}>
+            {shareInfo}
           </ThemedText>
         )}
         <BigButton
@@ -213,6 +258,7 @@ const styles = StyleSheet.create({
   dot: { width: 16, height: 16, borderRadius: 8 },
   teamName: { fontSize: 20, fontWeight: 700 },
   teamTotal: { fontSize: 22, fontWeight: 700 },
+  funName: { fontSize: 15, fontWeight: 700, fontStyle: 'italic' },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',

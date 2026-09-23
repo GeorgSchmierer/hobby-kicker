@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/controls';
 import { ErrorText, Field } from '@/components/form';
@@ -11,6 +11,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { confirmAction } from '@/lib/confirm';
 import { useGroup, type Member } from '@/lib/group';
+import { APP_URL } from '@/lib/params';
+import { shareText } from '@/lib/share';
 import { errorMessage } from '@/lib/supabase';
 
 export default function GroupScreen() {
@@ -62,18 +64,10 @@ export default function GroupScreen() {
 
   const [shareInfo, setShareInfo] = useState<string | null>(null);
   const shareCode = async () => {
-    const message = `Komm in unsere Kicker-Gruppe „${group.name}“ beim Hobby-Kicker! Einladungscode: ${group.invite_code}`;
-    // Browser am PC können oft nicht „teilen“ – dann in die Zwischenablage kopieren
-    if (Platform.OS === 'web' && !navigator.share) {
-      try {
-        await navigator.clipboard.writeText(message);
-        setShareInfo('Einladung kopiert – jetzt z. B. in WhatsApp einfügen.');
-      } catch {
-        setShareInfo('Bitte den Code oben abschreiben oder markieren und kopieren.');
-      }
-      return;
-    }
-    Share.share({ message }).catch(() => {});
+    const message = `Komm in unsere Kicker-Gruppe „${group.name}“ beim Hobby-Kicker!\n\n1. App öffnen: ${APP_URL}\n2. Mit deiner E-Mail anmelden\n3. Einladungscode eingeben: ${group.invite_code}`;
+    const outcome = await shareText(message);
+    if (outcome === 'copied') setShareInfo('Einladung kopiert – jetzt z. B. in WhatsApp einfügen.');
+    if (outcome === 'failed') setShareInfo('Bitte den Code oben abschreiben oder markieren und kopieren.');
   };
 
   const newCode = async () => {

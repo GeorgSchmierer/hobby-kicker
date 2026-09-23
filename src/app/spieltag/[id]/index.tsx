@@ -4,13 +4,15 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 
 import { BigButton } from '@/components/controls';
 import { ErrorText } from '@/components/form';
-import { TeamDot, teamColor, teamName } from '@/components/team';
+import { Confetti } from '@/components/confetti';
+import { ChanceBar, TeamDot, teamColor, teamName } from '@/components/team';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { confirmAction } from '@/lib/confirm';
+import { averageWinChances, formatPercent, funTeamNames, teamsShareText } from '@/lib/fun';
 import { useGroup, type Player } from '@/lib/group';
 import { formatRating } from '@/lib/ratings';
 import {
@@ -22,8 +24,12 @@ import {
   type Result,
   type SessionDetail,
 } from '@/lib/sessions';
+import { APP_URL } from '@/lib/params';
+import { useScaleD } from '@/lib/settings';
+import { shareText } from '@/lib/share';
+import { useStore, type Celebration } from '@/lib/store';
 import { errorMessage } from '@/lib/supabase';
-import { teamStats } from '@/lib/teams';
+import { splitKey, teamStats } from '@/lib/teams';
 
 export default function SessionScreen() {
   const theme = useTheme();
@@ -35,6 +41,10 @@ export default function SessionScreen() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareInfo, setShareInfo] = useState<string | null>(null);
+  const [party, setParty] = useState<Celebration | null>(null);
+  const { celebration, setCelebration } = useStore();
+  const scaleD = useScaleD();
 
   const reload = useCallback(async () => {
     try {
@@ -57,6 +67,17 @@ export default function SessionScreen() {
     }, [reload, refreshPlayers])
   );
 
+  // Frisch eingetragenes Ergebnis feiern (Konfetti + Banner), danach wieder ausblenden
+  useFocusEffect(
+    useCallback(() => {
+      if (celebration?.sessionId !== id) return;
+      setParty(celebration);
+      setCelebration(null);
+      const timer = setTimeout(() => setParty(null), 5000);
+      return () => clearTimeout(timer);
+    }, [celebration, id, setCelebration])
+  );
+
   if (detail === undefined) {
     return (
       <ThemedView style={[styles.screen, styles.center]}>
@@ -77,6 +98,31 @@ export default function SessionScreen() {
   const teamIdx = new Map(detail.teams.map((t) => [t.id, t.idx]));
   const newestFirst = [...detail.results].reverse();
   const shownExpanded = expanded ?? newestFirst[0]?.id ?? null;
+  const teamMembers = detail.teams.map((team) =>
+    team.playerIds.map((pid) => lookup.get(pid)).filter((p): p is Player => p !== undefined)
+  );
+  const totals = teamMembers.map((m) => teamStats(m).total);
+  const chances = averageWinChances(totals, scaleD);
+  const funNames = funTeamNames(splitKey(detail.teams.map((t) => t.playerIds)), detail.teams.length);
+
+  const share = async () => {
+    const text = teamsShareText({
+      groupName: current.name,
+      dateLabel: formatDate(detail.played_on),
+      teams: detail.teams.map((t, i) => ({
+        colorName: teamColor(t.idx).name,
+        emoji: teamColor(t.idx).emoji,
+        funName: funNames[i],
+        total: totals[i],
+        players: teamMembers[i].map((p) => p.name),
+      })),
+      chances,
+      appUrl: APP_URL,
+    });
+    const outcome = await shareText(text);
+    setShareInfo(outcome === 'copied' ? 'Teams kopiert – jetzt z. B. in WhatsApp einfügen.' : null);
+  };
+
   const canDelete =
     detail.results.length === 0 && (isAdmin || detail.created_by === auth?.user.id);
 
@@ -125,6 +171,21 @@ export default function SessionScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <ErrorText message={error} />
 
+        {party && (
+          <ThemedView
+            type="backgroundSelected"
+            style={[
+              styles.banner,
+              { borderColor: party.winnerIdx === null ? theme.primary : teamColor(party.winnerIdx).color },
+            ]}>
+            <ThemedText style={styles.bannerText}>
+              {party.winnerIdx === null
+                ? '🤝 Unentschieden – gut gekämpft!'
+                : `🎉 ${teamName(party.winnerIdx)} gewinnt!`}
+            </ThemedText>
+          </ThemedView>
+        )}
+
         <BigButton
           title="⚽ Ergebnis eintragen"
           disabled={busy}
@@ -132,6 +193,21 @@ export default function SessionScreen() {
             router.push({ pathname: '/spieltag/[id]/ergebnis', params: { id: detail.id } })
           }
         />
+        <View style={styles.buttonRow}>
+          <BigButton
+            title="⏱ Stoppuhr"
+            variant="secondary"
+            style={[styles.flex, styles.outlined, { borderColor: theme.border }]}
+            onPress={() => router.push('/stoppuhr')}
+          />
+          <BigButton
+            title="📤 Teilen"
+            variant="secondary"
+            style={[styles.flex, styles.outlined, { borderColor: theme.border }]}
+            onPress={share}
+          />
+        </View>
+        {shareInfo && <ThemedText type="small">{shareInfo}</ThemedText>}
 
         {/* Ergebnisse, neueste zuerst */}
         {newestFirst.length > 0 && (
@@ -156,11 +232,11 @@ export default function SessionScreen() {
         {/* Teams */}
         <View style={styles.section}>
           <ThemedText type="smallBold">Teams</ThemedText>
-          {detail.teams.map((team) => {
-            const members = team.playerIds
-              .map((pid) => lookup.get(pid))
-              .filter((p): p is Player => p !== undefined);
-            const stats = teamStats(members);
+          {detail.teams.length === 2 && (
+            <ChanceBar idxA={detail.teams[0].idx} idxB={detail.teams[1].idx} chanceA={chances[0]} />
+          )}
+          {detail.teams.map((team, i) => {
+            const members = teamMembers[i];
             return (
               <ThemedView
                 key={team.id}
@@ -172,9 +248,13 @@ export default function SessionScreen() {
                     {teamName(team.idx)}
                   </ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Stärke jetzt {formatRating(stats.total)}
+                    Stärke jetzt {formatRating(totals[i])}
+                    {detail.teams.length > 2 ? ` · Ø ${formatPercent(chances[i])}` : ''}
                   </ThemedText>
                 </View>
+                <ThemedText style={[styles.funName, { color: teamColor(team.idx).color }]}>
+                  „{funNames[i]}“
+                </ThemedText>
                 <ThemedText themeColor="textSecondary">
                   {members.map((p) => p.name).join(', ')}
                 </ThemedText>
@@ -192,6 +272,9 @@ export default function SessionScreen() {
           />
         )}
       </ScrollView>
+      {party && party.winnerIdx !== null && (
+        <Confetti colors={[teamColor(party.winnerIdx).color, '#FFD54F', '#FFFFFF', '#66BB6A']} />
+      )}
     </ThemedView>
   );
 }
@@ -351,6 +434,11 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
   teamCard: { borderRadius: 14, borderLeftWidth: 8, padding: Spacing.three, gap: Spacing.one },
   teamName: { fontSize: 18, fontWeight: 700 },
+  funName: { fontSize: 15, fontWeight: 700, fontStyle: 'italic' },
+  banner: { borderRadius: 14, borderWidth: 3, padding: Spacing.three, alignItems: 'center' },
+  bannerText: { fontSize: 22, lineHeight: 30, fontWeight: 800, textAlign: 'center' },
+  buttonRow: { flexDirection: 'row', gap: Spacing.two },
+  outlined: { borderWidth: 1 },
   resultCard: { borderRadius: 14, padding: Spacing.three, gap: Spacing.two },
   resultHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 40 },
   resultText: { fontSize: 18, fontWeight: 600 },
