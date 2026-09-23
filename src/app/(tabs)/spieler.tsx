@@ -39,7 +39,7 @@ export default function PlayersScreen() {
         <FlatList
           data={sorted}
           keyExtractor={(p) => p.id}
-          renderItem={({ item }) => <PlayerRow player={item} editable={isAdmin} />}
+          renderItem={({ item }) => <PlayerRow player={item} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             playersLoaded ? (
@@ -54,13 +54,12 @@ export default function PlayersScreen() {
   );
 }
 
-function PlayerRow({ player, editable }: { player: Player; editable: boolean }) {
+function PlayerRow({ player }: { player: Player }) {
   const theme = useTheme();
   return (
     <Pressable
-      accessibilityRole={editable ? 'button' : undefined}
-      disabled={!editable}
-      onPress={() => router.push({ pathname: '/spieler/[id]', params: { id: player.id } })}
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/profil/[id]', params: { id: player.id } })}
       style={({ pressed }) => [
         styles.row,
         { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : player.active ? 1 : 0.5 },
