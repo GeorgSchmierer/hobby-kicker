@@ -7,7 +7,7 @@ import { ErrorText, Field } from '@/components/form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { tokenHashFromLink, useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/supabase';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -50,8 +50,7 @@ export default function SignInScreen() {
   const submitCode = () => run(() => verifyCode(email, code));
 
   const digits = code.replace(/\D/g, '');
-  const isLink = tokenHashFromLink(code) !== null;
-  const canSubmit = isLink || digits.length >= 6;
+  const canSubmit = digits.length >= 6;
 
   return (
     <ThemedView style={styles.screen}>
@@ -95,7 +94,7 @@ export default function SignInScreen() {
                 <ThemedText themeColor="textSecondary" style={styles.center}>
                   Wir haben dir eine E-Mail an{' '}
                   <ThemedText style={styles.bold}>{email.trim()}</ThemedText> geschickt. Gib den
-                  Code (nur Ziffern) daraus ein.
+                  6-stelligen Code daraus ein.
                 </ThemedText>
                 <Field
                   value={code}
@@ -106,7 +105,8 @@ export default function SignInScreen() {
                   autoComplete="one-time-code"
                   textContentType="oneTimeCode"
                   autoFocus
-                  style={isLink ? undefined : styles.codeInput}
+                  maxLength={10}
+                  style={styles.codeInput}
                   onSubmitEditing={() => canSubmit && submitCode()}
                 />
                 <ErrorText message={error} />
@@ -138,10 +138,6 @@ export default function SignInScreen() {
                 </View>
                 <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
                   Keine Mail? Schau auch im Spam-Ordner nach.
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-                  Steht in der Mail nur ein Link? Den Link nicht anklicken, sondern kopieren
-                  (lange drücken bzw. Rechtsklick → Link-Adresse kopieren) und oben einfügen.
                 </ThemedText>
               </>
             )}

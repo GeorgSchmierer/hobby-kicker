@@ -30,17 +30,6 @@ type Auth = {
 
 const AuthContext = createContext<Auth | null>(null);
 
-/** Liest den Anmeldeschlüssel aus einem Supabase-Link (…/auth/v1/verify?token=…) */
-export function tokenHashFromLink(input: string): string | null {
-  const text = input.trim();
-  if (!/^https?:\/\//i.test(text)) return null;
-  try {
-    return new URL(text).searchParams.get('token');
-  } catch {
-    return null;
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -82,16 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const verifyCode = useCallback(async (email: string, code: string) => {
-    // Übergangslösung, solange die Standard-Mail von Supabase nur einen Link enthält
-    // (Vorlagen erst mit eigenem E-Mail-Versand änderbar): den kopierten Link akzeptieren
-    const tokenHash = tokenHashFromLink(code);
-    const { error } = tokenHash
-      ? await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email' })
-      : await supabase.auth.verifyOtp({
-          email: email.trim().toLowerCase(),
-          token: code.replace(/\s/g, ''),
-          type: 'email',
-        });
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: code.replace(/\s/g, ''),
+      type: 'email',
+    });
     if (error) throw error;
   }, []);
 
