@@ -29,7 +29,7 @@ leicht an. Dadurch werden die Teams mit der Zeit immer fairer.
 | Plattformen später | iOS App Store + Google Play Store aus **demselben Code** (Build über EAS in der Cloud, kein Mac nötig) |
 | Backend | **Supabase** (Postgres-Datenbank, Login, Row Level Security), Region **EU (Frankfurt)** |
 | Datenbank-Änderungen | Als Migrationen im Repository (`supabase/migrations`), mit Supabase CLI |
-| Web-Hosting | Noch offen (z. B. EAS Hosting, Vercel oder Netlify) – mit Projektinhaber entscheiden |
+| Web-Hosting | **Vercel**, Adresse **https://hobby-kicker.vercel.app** – jeder Push auf `main` geht automatisch live |
 | Tests | Automatische Tests (Jest) für die Team-Einteilung und die Wertungsanpassung |
 
 Beim Testen auf dem Handy während der Entwicklung: **Expo Go** (QR-Code scannen).
@@ -137,7 +137,7 @@ Alle Parameter (`D`, `K`, Gewichte) zentral an einer Stelle im Code halten, dami
 ## 10. Offene Fragen
 
 - Name der App (Arbeitstitel „Hobby-Kicker“)?
-- Wo soll die Web-Version gehostet werden, und soll sie eine eigene Domain bekommen?
+- Soll die App später eine eigene Domain bekommen? (Hosting: Vercel, entschieden)
 - Gibt es Unentschieden, oder wird immer ein Sieger ausgespielt?
 - Soll ein Spieler sich selbst bewerten dürfen, oder nur der Admin?
 
