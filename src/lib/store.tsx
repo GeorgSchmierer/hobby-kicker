@@ -1,6 +1,6 @@
 /**
- * Lokaler Speicher für M1: Spieler, Anwesenheit und Anzahl Teams liegen nur auf dem Gerät.
- * In M2 wird das durch Supabase ersetzt.
+ * Was nur auf diesem Gerät gespeichert wird: Anwesenheit und Anzahl Teams (je Gruppe)
+ * sowie das gerade angezeigte Würfel-Ergebnis. Spieler und Gruppen liegen online (group.tsx).
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -13,27 +13,18 @@ import {
   type ReactNode,
 } from 'react';
 
-import { RATING_LIMITS } from './params';
 import type { Split } from './teams';
-
-export type Player = {
-  id: string;
-  name: string;
-  defense: number;
-  attack: number;
-  active: boolean;
-};
 
 export type TeamCount = 2 | 3 | 4;
 
 type SavedState = {
-  players: Player[];
-  presentIds: string[];
-  teamCount: TeamCount;
+  presentIds: Record<string, string[]>;
+  teamCount: Record<string, TeamCount>;
 };
 
 /** Das aktuell angezeigte Würfel-Ergebnis (wird nicht gespeichert). */
 export type Draw = {
+  groupId: string;
   /** Alle gefundenen guten Einteilungen, für „Neu würfeln“ */
   candidates: Split[];
   /** Angezeigte Teams (Spieler-IDs), evtl. von Hand geändert */
@@ -42,30 +33,21 @@ export type Draw = {
   key: string;
 };
 
-const STORAGE_KEY = 'hobby-kicker/v1/state';
-const EMPTY: SavedState = { players: [], presentIds: [], teamCount: 2 };
+const STORAGE_KEY = 'hobby-kicker/v2/matchday';
+const EMPTY: SavedState = { presentIds: {}, teamCount: {} };
 
-type Store = SavedState & {
+type Store = {
   loaded: boolean;
   draw: Draw | null;
-  savePlayer: (player: Omit<Player, 'id'> & { id?: string }) => void;
-  deletePlayer: (id: string) => void;
-  setPresent: (id: string, present: boolean) => void;
-  setAllPresent: (present: boolean) => void;
-  setTeamCount: (count: TeamCount) => void;
   setDraw: (draw: Draw | null) => void;
+  presentIdsFor: (groupId: string) => string[];
+  teamCountFor: (groupId: string) => TeamCount;
+  setPresent: (groupId: string, playerId: string, present: boolean) => void;
+  setPresentIds: (groupId: string, ids: string[]) => void;
+  setTeamCount: (groupId: string, count: TeamCount) => void;
 };
 
 const StoreContext = createContext<Store | null>(null);
-
-export function clampRating(value: number): number {
-  const rounded = Math.round(value * 10) / 10;
-  return Math.min(RATING_LIMITS.max, Math.max(RATING_LIMITS.min, rounded));
-}
-
-function newId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SavedState>(EMPTY);
@@ -88,67 +70,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, [state, loaded]);
 
-  const savePlayer = useCallback<Store['savePlayer']>((input) => {
-    const player: Player = {
-      ...input,
-      id: input.id ?? newId(),
-      name: input.name.trim(),
-      defense: clampRating(input.defense),
-      attack: clampRating(input.attack),
-    };
+  const presentIdsFor = useCallback((groupId: string) => state.presentIds[groupId] ?? [], [state]);
+  const teamCountFor = useCallback((groupId: string) => state.teamCount[groupId] ?? 2, [state]);
+
+  const setPresentIds = useCallback((groupId: string, ids: string[]) => {
+    setState((s) => ({ ...s, presentIds: { ...s.presentIds, [groupId]: [...new Set(ids)] } }));
+  }, []);
+
+  const setPresent = useCallback((groupId: string, playerId: string, present: boolean) => {
     setState((s) => {
-      const exists = s.players.some((p) => p.id === player.id);
-      const players = exists
-        ? s.players.map((p) => (p.id === player.id ? player : p))
-        : [...s.players, player];
-      const presentIds = player.active
-        ? s.presentIds
-        : s.presentIds.filter((id) => id !== player.id);
-      return { ...s, players, presentIds };
+      const ids = s.presentIds[groupId] ?? [];
+      const next = present ? [...new Set([...ids, playerId])] : ids.filter((id) => id !== playerId);
+      return { ...s, presentIds: { ...s.presentIds, [groupId]: next } };
     });
   }, []);
 
-  const deletePlayer = useCallback((id: string) => {
-    setState((s) => ({
-      ...s,
-      players: s.players.filter((p) => p.id !== id),
-      presentIds: s.presentIds.filter((p) => p !== id),
-    }));
-  }, []);
-
-  const setPresent = useCallback((id: string, present: boolean) => {
-    setState((s) => ({
-      ...s,
-      presentIds: present
-        ? [...new Set([...s.presentIds, id])]
-        : s.presentIds.filter((p) => p !== id),
-    }));
-  }, []);
-
-  const setAllPresent = useCallback((present: boolean) => {
-    setState((s) => ({
-      ...s,
-      presentIds: present ? s.players.filter((p) => p.active).map((p) => p.id) : [],
-    }));
-  }, []);
-
-  const setTeamCount = useCallback((teamCount: TeamCount) => {
-    setState((s) => ({ ...s, teamCount }));
+  const setTeamCount = useCallback((groupId: string, count: TeamCount) => {
+    setState((s) => ({ ...s, teamCount: { ...s.teamCount, [groupId]: count } }));
   }, []);
 
   const value = useMemo<Store>(
     () => ({
-      ...state,
       loaded,
       draw,
-      savePlayer,
-      deletePlayer,
-      setPresent,
-      setAllPresent,
-      setTeamCount,
       setDraw,
+      presentIdsFor,
+      teamCountFor,
+      setPresent,
+      setPresentIds,
+      setTeamCount,
     }),
-    [state, loaded, draw, savePlayer, deletePlayer, setPresent, setAllPresent, setTeamCount]
+    [loaded, draw, presentIdsFor, teamCountFor, setPresent, setPresentIds, setTeamCount]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
@@ -158,9 +110,4 @@ export function useStore(): Store {
   const store = useContext(StoreContext);
   if (!store) throw new Error('useStore muss innerhalb von <StoreProvider> verwendet werden.');
   return store;
-}
-
-/** Zahl deutsch mit einer Nachkommastelle, z. B. 6,5 */
-export function formatRating(value: number): string {
-  return value.toFixed(1).replace('.', ',');
 }

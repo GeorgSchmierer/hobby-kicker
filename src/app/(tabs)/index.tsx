@@ -1,4 +1,5 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/controls';
@@ -6,7 +7,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatRating, useStore, type Player, type TeamCount } from '@/lib/store';
+import { useGroup, type Player } from '@/lib/group';
+import { formatRating } from '@/lib/ratings';
+import { useStore, type TeamCount } from '@/lib/store';
 import { findFairSplits, pickSplit, strength } from '@/lib/teams';
 
 const TEAM_COUNTS: TeamCount[] = [2, 3, 4];
@@ -14,8 +17,18 @@ const MIN_PER_TEAM = 2;
 
 export default function MatchdayScreen() {
   const theme = useTheme();
-  const { players, presentIds, teamCount, setTeamCount, setAllPresent, setDraw, loaded } =
-    useStore();
+  const { current, isAdmin, players, playersLoaded, refreshPlayers } = useGroup();
+  const store = useStore();
+  const groupId = current!.id;
+  const presentIds = store.presentIdsFor(groupId);
+  const teamCount = store.teamCountFor(groupId);
+
+  // Beim Öffnen des Reiters die Spielerliste auffrischen (andere könnten etwas geändert haben)
+  useFocusEffect(
+    useCallback(() => {
+      refreshPlayers().catch(() => {});
+    }, [refreshPlayers])
+  );
 
   const activePlayers = players
     .filter((p) => p.active)
@@ -28,21 +41,30 @@ export default function MatchdayScreen() {
     const candidates = findFairSplits(present, teamCount);
     const split = pickSplit(candidates);
     if (!split) return;
-    setDraw({ candidates, teams: split.teams, key: split.key });
+    store.setDraw({ groupId, candidates, teams: split.teams, key: split.key });
     router.push('/teams');
   };
 
-  if (loaded && activePlayers.length === 0) {
+  if (playersLoaded && activePlayers.length === 0) {
     return (
       <ThemedView style={[styles.screen, styles.emptyScreen]}>
         <ThemedText type="subtitle" style={styles.center}>
           Willkommen beim Hobby-Kicker!
         </ThemedText>
-        <ThemedText themeColor="textSecondary" style={styles.center}>
-          Leg zuerst eure Spieler an. Danach kannst du hier auswählen, wer heute da ist, und faire
-          Teams würfeln.
-        </ThemedText>
-        <BigButton title="Spieler anlegen" onPress={() => router.push('/spieler')} />
+        {isAdmin ? (
+          <>
+            <ThemedText themeColor="textSecondary" style={styles.center}>
+              Leg zuerst eure Spieler an. Danach kannst du hier auswählen, wer heute da ist, und
+              faire Teams würfeln.
+            </ThemedText>
+            <BigButton title="Spieler anlegen" onPress={() => router.push('/spieler')} />
+          </>
+        ) : (
+          <ThemedText themeColor="textSecondary" style={styles.center}>
+            In dieser Gruppe gibt es noch keine Spieler. Sobald ein Admin sie angelegt hat, kannst
+            du hier Teams würfeln.
+          </ThemedText>
+        )}
       </ThemedView>
     );
   }
@@ -59,7 +81,7 @@ export default function MatchdayScreen() {
                 key={count}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
-                onPress={() => setTeamCount(count)}
+                onPress={() => store.setTeamCount(groupId, count)}
                 style={[
                   styles.segmentButton,
                   { backgroundColor: selected ? theme.primary : theme.backgroundElement },
@@ -77,10 +99,10 @@ export default function MatchdayScreen() {
           <ThemedText type="smallBold" style={styles.flex}>
             Wer ist da? {present.length} von {activePlayers.length}
           </ThemedText>
-          <Pressable onPress={() => setAllPresent(true)} hitSlop={12}>
+          <Pressable onPress={() => store.setPresentIds(groupId, activePlayers.map((p) => p.id))} hitSlop={12}>
             <ThemedText type="linkPrimary">Alle</ThemedText>
           </Pressable>
-          <Pressable onPress={() => setAllPresent(false)} hitSlop={12}>
+          <Pressable onPress={() => store.setPresentIds(groupId, [])} hitSlop={12}>
             <ThemedText type="linkPrimary">Keiner</ThemedText>
           </Pressable>
         </View>
@@ -89,7 +111,11 @@ export default function MatchdayScreen() {
           data={activePlayers}
           keyExtractor={(p) => p.id}
           renderItem={({ item }) => (
-            <AttendanceRow player={item} present={presentIds.includes(item.id)} />
+            <AttendanceRow
+              player={item}
+              present={presentIds.includes(item.id)}
+              onToggle={() => store.setPresent(groupId, item.id, !presentIds.includes(item.id))}
+            />
           )}
           contentContainerStyle={styles.list}
           style={styles.flex}
@@ -106,14 +132,21 @@ export default function MatchdayScreen() {
   );
 }
 
-function AttendanceRow({ player, present }: { player: Player; present: boolean }) {
+function AttendanceRow({
+  player,
+  present,
+  onToggle,
+}: {
+  player: Player;
+  present: boolean;
+  onToggle: () => void;
+}) {
   const theme = useTheme();
-  const { setPresent } = useStore();
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: present }}
-      onPress={() => setPresent(player.id, !present)}
+      onPress={onToggle}
       style={[
         styles.row,
         {

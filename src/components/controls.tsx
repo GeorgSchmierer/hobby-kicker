@@ -9,7 +9,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { RATING_LIMITS } from '@/lib/params';
-import { clampRating, formatRating } from '@/lib/store';
+import { clampRating, formatRating } from '@/lib/ratings';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 

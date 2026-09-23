@@ -7,15 +7,18 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, TeamColors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatRating, useStore, type Player } from '@/lib/store';
+import { useGroup, type Player } from '@/lib/group';
+import { formatRating } from '@/lib/ratings';
+import { useStore } from '@/lib/store';
 import { pickSplit, splitKey, teamStats } from '@/lib/teams';
 
 export default function TeamsScreen() {
   const theme = useTheme();
-  const { draw, setDraw, players } = useStore();
+  const { draw, setDraw } = useStore();
+  const { players, current } = useGroup();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (!draw) {
+  if (!draw || draw.groupId !== current?.id) {
     return (
       <ThemedView style={[styles.screen, styles.emptyScreen]}>
         <ThemedText style={styles.center}>Es wurden noch keine Teams gewürfelt.</ThemedText>

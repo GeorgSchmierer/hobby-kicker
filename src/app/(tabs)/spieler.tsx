@@ -1,4 +1,5 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/controls';
@@ -6,11 +7,17 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatRating, useStore, type Player } from '@/lib/store';
+import { useGroup, type Player } from '@/lib/group';
+import { formatRating } from '@/lib/ratings';
 import { strength } from '@/lib/teams';
 
 export default function PlayersScreen() {
-  const { players, loaded } = useStore();
+  const { players, playersLoaded, isAdmin, refreshPlayers } = useGroup();
+  useFocusEffect(
+    useCallback(() => {
+      refreshPlayers().catch(() => {});
+    }, [refreshPlayers])
+  );
   const sorted = [...players].sort(
     (a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'de')
   );
@@ -18,20 +25,26 @@ export default function PlayersScreen() {
   return (
     <ThemedView style={styles.screen}>
       <View style={styles.content}>
-        <BigButton
-          title="+ Spieler hinzufügen"
-          onPress={() => router.push('/spieler/neu')}
-          style={styles.addButton}
-        />
+        {isAdmin ? (
+          <BigButton
+            title="+ Spieler hinzufügen"
+            onPress={() => router.push('/spieler/neu')}
+            style={styles.addButton}
+          />
+        ) : (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.addButton}>
+            Spieler anlegen und Stärken ändern können nur Admins.
+          </ThemedText>
+        )}
         <FlatList
           data={sorted}
           keyExtractor={(p) => p.id}
-          renderItem={({ item }) => <PlayerRow player={item} />}
+          renderItem={({ item }) => <PlayerRow player={item} editable={isAdmin} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            loaded ? (
+            playersLoaded ? (
               <ThemedText themeColor="textSecondary" style={styles.empty}>
-                Noch keine Spieler. Leg zuerst alle an, die bei euch mitspielen.
+                Noch keine Spieler in dieser Gruppe.
               </ThemedText>
             ) : null
           }
@@ -41,11 +54,12 @@ export default function PlayersScreen() {
   );
 }
 
-function PlayerRow({ player }: { player: Player }) {
+function PlayerRow({ player, editable }: { player: Player; editable: boolean }) {
   const theme = useTheme();
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={editable ? 'button' : undefined}
+      disabled={!editable}
       onPress={() => router.push({ pathname: '/spieler/[id]', params: { id: player.id } })}
       style={({ pressed }) => [
         styles.row,

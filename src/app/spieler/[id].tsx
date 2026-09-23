@@ -1,14 +1,17 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { BigButton, RatingStepper } from '@/components/controls';
+import { ErrorText, Field } from '@/components/form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useGroup } from '@/lib/group';
 import { RATING_LIMITS } from '@/lib/params';
-import { formatRating, useStore } from '@/lib/store';
+import { formatRating } from '@/lib/ratings';
+import { errorMessage } from '@/lib/supabase';
 
 /** Zurück zur Spielerliste – auch wenn die Seite direkt aufgerufen wurde (Web) */
 function close() {
@@ -18,10 +21,17 @@ function close() {
 
 export default function PlayerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { players, loaded } = useStore();
+  const { players, playersLoaded, isAdmin } = useGroup();
   const existing = players.find((p) => p.id === id);
 
-  if (!loaded) return <ThemedView style={styles.screen} />;
+  if (!playersLoaded) return <ThemedView style={styles.screen} />;
+  if (!isAdmin) {
+    return (
+      <ThemedView style={styles.screen}>
+        <ThemedText style={styles.missing}>Spieler bearbeiten können nur Admins.</ThemedText>
+      </ThemedView>
+    );
+  }
   if (id !== 'neu' && !existing) {
     return (
       <ThemedView style={styles.screen}>
@@ -35,30 +45,39 @@ export default function PlayerScreen() {
 
 function PlayerForm({ playerId }: { playerId?: string }) {
   const theme = useTheme();
-  const { players, savePlayer, deletePlayer } = useStore();
+  const { players, savePlayer, deletePlayer } = useGroup();
   const existing = players.find((p) => p.id === playerId);
 
   const [name, setName] = useState(existing?.name ?? '');
   const [defense, setDefense] = useState(existing?.defense ?? RATING_LIMITS.default);
   const [attack, setAttack] = useState(existing?.attack ?? RATING_LIMITS.default);
   const [active, setActive] = useState(existing?.active ?? true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const trimmed = name.trim();
   const duplicate = players.some(
     (p) => p.id !== playerId && p.name.trim().toLowerCase() === trimmed.toLowerCase()
   );
 
-  const save = () => {
-    savePlayer({ id: playerId, name: trimmed, defense, attack, active });
-    close();
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      close();
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
   };
+
+  const save = () =>
+    run(() => savePlayer({ id: playerId, name: trimmed, defense, attack, active }));
 
   const remove = () => {
     const question = `„${existing?.name}“ wirklich löschen?`;
-    const doDelete = () => {
-      deletePlayer(playerId!);
-      close();
-    };
+    const doDelete = () => run(() => deletePlayer(playerId!));
     if (Platform.OS === 'web') {
       if (window.confirm(question)) doDelete();
     } else {
@@ -75,18 +94,13 @@ function PlayerForm({ playerId }: { playerId?: string }) {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
           <ThemedText type="smallBold">Name oder Spitzname</ThemedText>
-          <TextInput
+          <Field
             value={name}
             onChangeText={setName}
             placeholder="z. B. Tommi"
-            placeholderTextColor={theme.textSecondary}
             autoFocus={!existing}
             maxLength={30}
             returnKeyType="done"
-            style={[
-              styles.input,
-              { color: theme.text, backgroundColor: theme.backgroundElement, borderColor: theme.border },
-            ]}
           />
           {duplicate && (
             <ThemedText type="small" style={{ color: theme.danger }}>
@@ -115,8 +129,15 @@ function PlayerForm({ playerId }: { playerId?: string }) {
           />
         </View>
 
-        <BigButton title="Speichern" disabled={!trimmed || duplicate} onPress={save} />
-        {existing && <BigButton title="Spieler löschen" variant="danger" onPress={remove} />}
+        <ErrorText message={error} />
+        <BigButton
+          title={busy ? 'Wird gespeichert …' : 'Speichern'}
+          disabled={busy || !trimmed || duplicate}
+          onPress={save}
+        />
+        {existing && (
+          <BigButton title="Spieler löschen" variant="danger" disabled={busy} onPress={remove} />
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -133,13 +154,6 @@ const styles = StyleSheet.create({
   },
   missing: { textAlign: 'center', marginTop: Spacing.five },
   field: { gap: Spacing.two },
-  input: {
-    fontSize: 20,
-    minHeight: 56,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.three,
-  },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   switchText: { flex: 1 },
   switchLabel: { fontSize: 20, fontWeight: 700 },
