@@ -113,10 +113,12 @@ function ProfileStats({
     stats.games,
     playerIds,
     stats.changes.map((c) => ({ playerId: c.playerId, playedOn: c.playedOn, delta: c.after - c.before })),
-    todayIso()
+    todayIso(),
+    stats.mvp
   ).filter((a) => a.playerId === playerId);
+  const mvpCount = stats.mvp.get(playerId) ?? 0;
 
-  if (s.played === 0) {
+  if (s.played === 0 && mvpCount === 0) {
     return (
       <ThemedText themeColor="textSecondary" style={styles.centerText}>
         Noch keine gewerteten Spiele. Nach dem ersten Ergebnis gibt es hier Statistiken.
@@ -157,7 +159,9 @@ function ProfileStats({
           <Figure value={String(s.draws)} label="Unentsch." />
           <Figure value={String(s.losses)} label="Niederl." />
         </View>
-        <ThemedText style={styles.winRate}>Siegquote {pct(s.winRate!)}</ThemedText>
+        {s.winRate !== null && (
+          <ThemedText style={styles.winRate}>Siegquote {pct(s.winRate)}</ThemedText>
+        )}
         <View style={styles.row}>
           <ThemedText type="smallBold" style={styles.flex}>
             Form (letzte Spiele)
@@ -165,6 +169,11 @@ function ProfileStats({
           <FormChips form={s.form} />
         </View>
         {streakText && <ThemedText>{streakText}</ThemedText>}
+        {mvpCount > 0 && (
+          <ThemedText>
+            ⭐ {mvpCount}× MVP des Tages
+          </ThemedText>
+        )}
         {s.longestWinStreak >= 2 && (
           <ThemedText type="small" themeColor="textSecondary">
             Längste Siegesserie: {s.longestWinStreak}

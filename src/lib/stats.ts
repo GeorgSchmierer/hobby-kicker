@@ -194,7 +194,8 @@ export function awards(
   games: Game[],
   playerIds: string[],
   strengthChanges: { playerId: string; playedOn: string; delta: number }[],
-  today: string
+  today: string,
+  mvp: Map<string, number> = new Map()
 ): Award[] {
   const list: Award[] = [];
   const summaries = new Map(playerIds.map((id) => [id, summarize(games, id)]));
@@ -229,6 +230,18 @@ export function awards(
     list.push({ emoji: '🏃', title: 'Dauerbrenner', playerId: most.id, detail: `${most.s.played} Spiele` });
   }
 
+  const topMvp = [...mvp.entries()]
+    .filter(([id, n]) => n > 0 && playerIds.includes(id))
+    .sort((a, b) => b[1] - a[1])[0];
+  if (topMvp) {
+    list.push({
+      emoji: '⭐',
+      title: 'MVP-Sammler',
+      playerId: topMvp[0],
+      detail: `${topMvp[1]}× MVP des Tages`,
+    });
+  }
+
   const since = shiftDate(today, -30);
   const gains = new Map<string, number>();
   for (const c of strengthChanges) {
@@ -251,4 +264,23 @@ function shiftDate(isoDate: string, days: number): string {
   const [y, m, d] = isoDate.split('-').map(Number);
   const date = new Date(Date.UTC(y, m - 1, d + days));
   return date.toISOString().slice(0, 10);
+}
+
+/** MVP je Spieltag: wer die meisten Stimmen hat (bei Gleichstand alle Gleichplatzierten) */
+export function sessionMvps(votes: { playerId: string }[]): string[] {
+  const tally = new Map<string, number>();
+  for (const v of votes) tally.set(v.playerId, (tally.get(v.playerId) ?? 0) + 1);
+  const max = Math.max(0, ...tally.values());
+  return max === 0 ? [] : [...tally.entries()].filter(([, n]) => n === max).map(([id]) => id);
+}
+
+/** Anzahl MVP-Titel je Spieler über alle Spieltage */
+export function mvpTitles(votes: { sessionId: string; playerId: string }[]): Map<string, number> {
+  const bySession = new Map<string, { playerId: string }[]>();
+  for (const v of votes) bySession.set(v.sessionId, [...(bySession.get(v.sessionId) ?? []), v]);
+  const titles = new Map<string, number>();
+  for (const sessionVotes of bySession.values()) {
+    for (const id of sessionMvps(sessionVotes)) titles.set(id, (titles.get(id) ?? 0) + 1);
+  }
+  return titles;
 }

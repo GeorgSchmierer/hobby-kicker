@@ -4,7 +4,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
-import { buildGames, type Game, type ResultInput } from './stats';
+import { buildGames, mvpTitles, type Game, type ResultInput } from './stats';
 import { supabase } from './supabase';
 
 export type StrengthChange = {
@@ -19,10 +19,12 @@ export type StrengthChange = {
 export type GroupStats = {
   games: Game[];
   changes: StrengthChange[];
+  /** Anzahl „MVP des Tages“-Titel je Spieler */
+  mvp: Map<string, number>;
 };
 
 export async function loadGroupStats(groupId: string): Promise<GroupStats> {
-  const [resultsRes, teamsRes] = await Promise.all([
+  const [resultsRes, teamsRes, votesRes] = await Promise.all([
     supabase
       .from('results')
       .select(
@@ -33,9 +35,11 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
       .eq('group_id', groupId)
       .order('seq'),
     supabase.from('teams').select('id, team_players (player_id)').eq('group_id', groupId),
+    supabase.from('mvp_votes').select('session_id, player_id').eq('group_id', groupId),
   ]);
   if (resultsRes.error) throw resultsRes.error;
   if (teamsRes.error) throw teamsRes.error;
+  if (votesRes.error) throw votesRes.error;
 
   const members = new Map<string, string[]>(
     (teamsRes.data ?? []).map((t: any) => [t.id, (t.team_players ?? []).map((tp: any) => tp.player_id)])
@@ -67,7 +71,10 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
       });
     }
   }
-  return { games: buildGames(results), changes };
+  const mvp = mvpTitles(
+    (votesRes.data ?? []).map((v: any) => ({ sessionId: v.session_id, playerId: v.player_id }))
+  );
+  return { games: buildGames(results), changes, mvp };
 }
 
 /** Statistik der Gruppe, wird beim Öffnen des Bildschirms frisch geladen */

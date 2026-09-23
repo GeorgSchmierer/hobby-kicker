@@ -3,7 +3,9 @@ import {
   buildGames,
   dreamPartner,
   favouriteOpponent,
+  mvpTitles,
   nemesis,
+  sessionMvps,
   strengthHistory,
   summarize,
   type ResultInput,
@@ -158,5 +160,29 @@ describe('awards', () => {
 
   it('ohne genug Spiele gibt es keine Titel', () => {
     expect(awards([], ['a'], [], '2026-09-24')).toEqual([]);
+  });
+});
+
+describe('MVP', () => {
+  it('MVP ist, wer die meisten Stimmen hat – bei Gleichstand alle', () => {
+    expect(sessionMvps([{ playerId: 'a' }, { playerId: 'a' }, { playerId: 'b' }])).toEqual(['a']);
+    expect(sessionMvps([{ playerId: 'a' }, { playerId: 'b' }]).sort()).toEqual(['a', 'b']);
+    expect(sessionMvps([])).toEqual([]);
+  });
+
+  it('zählt Titel über alle Spieltage und vergibt „MVP-Sammler“', () => {
+    const titles = mvpTitles([
+      { sessionId: 's1', playerId: 'a' },
+      { sessionId: 's1', playerId: 'a' },
+      { sessionId: 's1', playerId: 'b' },
+      { sessionId: 's2', playerId: 'a' },
+      { sessionId: 's3', playerId: 'b' },
+    ]);
+    expect(titles.get('a')).toBe(2);
+    expect(titles.get('b')).toBe(1);
+    const list = awards([], ['a', 'b'], [], '2026-09-24', titles);
+    expect(list).toEqual([
+      { emoji: '⭐', title: 'MVP-Sammler', playerId: 'a', detail: '2× MVP des Tages' },
+    ]);
   });
 });

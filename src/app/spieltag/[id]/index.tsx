@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { BigButton } from '@/components/controls';
 import { ErrorText } from '@/components/form';
 import { Confetti } from '@/components/confetti';
+import { MvpVote } from '@/components/mvp-vote';
 import { ChanceBar, TeamDot, teamColor, teamName } from '@/components/team';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -228,6 +229,14 @@ export default function SessionScreen() {
             ))}
           </View>
         )}
+
+        <MvpVote
+          sessionId={detail.id}
+          players={teamMembers.flat()}
+          votes={detail.votes}
+          myUserId={auth?.user.id}
+          onVoted={reload}
+        />
 
         {/* Teams */}
         <View style={styles.section}>

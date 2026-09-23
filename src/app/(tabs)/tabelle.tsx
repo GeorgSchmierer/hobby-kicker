@@ -48,7 +48,8 @@ export default function TableScreen() {
         stats.games,
         active.map((p) => p.id),
         stats.changes.map((c) => ({ playerId: c.playerId, playedOn: c.playedOn, delta: c.after - c.before })),
-        todayIso()
+        todayIso(),
+        stats.mvp
       )
     : [];
   const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '?';

@@ -50,7 +50,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "test:db": "node --test supabase/tests/rls.test.mjs supabase/tests/ratings.test.mjs"
+    "test:db": "node --test supabase/tests/rls.test.mjs supabase/tests/ratings.test.mjs supabase/tests/mvp.test.mjs"
   },
   "private": true,
   "jest": {

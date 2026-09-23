@@ -50,6 +50,8 @@ export type SessionDetail = {
   created_by: string | null;
   teams: SessionTeam[];
   results: Result[];
+  /** Stimmen für „MVP des Tages“ */
+  votes: { voter_id: string; player_id: string }[];
 };
 
 export type Outcome = 'a' | 'b' | 'draw';
@@ -78,7 +80,8 @@ export async function loadSession(sessionId: string): Promise<SessionDetail | nu
        teams (id, idx, team_players (player_id)),
        results (id, seq, kind, created_at,
          matches (id, team_a, team_b, goals_a, goals_b, score_a),
-         rating_changes (id, player_id, defense_before, attack_before, defense_after, attack_after))`
+         rating_changes (id, player_id, defense_before, attack_before, defense_after, attack_after)),
+       mvp_votes (voter_id, player_id)`
     )
     .eq('id', sessionId)
     .maybeSingle();
@@ -107,6 +110,7 @@ export async function loadSession(sessionId: string): Promise<SessionDetail | nu
         changes: summarizeChanges(r.rating_changes ?? []),
       }))
       .sort((a: Result, b: Result) => a.seq - b.seq),
+    votes: s.mvp_votes ?? [],
   };
 }
 
@@ -185,6 +189,11 @@ export async function undoLastResult(groupId: string, resultId: string): Promise
     p_group: groupId,
     p_expected_result: resultId,
   });
+  if (error) throw error;
+}
+
+export async function voteMvp(sessionId: string, playerId: string): Promise<void> {
+  const { error } = await supabase.rpc('vote_mvp', { p_session: sessionId, p_player: playerId });
   if (error) throw error;
 }
 
