@@ -14,6 +14,10 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    primary: '#1B8A3C',
+    onPrimary: '#ffffff',
+    danger: '#C62828',
+    border: '#D9DAE0',
   },
   dark: {
     text: '#ffffff',
@@ -21,8 +25,20 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    primary: '#34B55A',
+    onPrimary: '#000000',
+    danger: '#EF6B6B',
+    border: '#3A3D42',
   },
 } as const;
+
+/** Erkennungsfarben der Teams (Leibchen), in beiden Modi gut sichtbar */
+export const TeamColors = [
+  { name: 'Rot', color: '#E53935' },
+  { name: 'Blau', color: '#1E88E5' },
+  { name: 'Gelb', color: '#F9A825' },
+  { name: 'Lila', color: '#8E24AA' },
+] as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 

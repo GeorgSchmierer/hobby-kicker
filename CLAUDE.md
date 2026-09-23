@@ -146,3 +146,4 @@ Alle Parameter (`D`, `K`, Gewichte) zentral an einer Stelle im Code halten, dami
 - 2026-09-23: Expo + Supabase gewählt; zuerst installierbare Web-App, später Stores.
 - 2026-09-23: Alle Gruppenmitglieder nutzen die App (Login + Einladungscode); Stärkewerte für alle sichtbar.
 - 2026-09-23: M0 – Projekt mit Expo SDK 57 (Standard-Vorlage, Expo Router, Bildschirme in `src/app/`) angelegt. Technische Expo-Hinweise für Claude Code stehen in `AGENTS.md`. Beispiel-Bildschirme der Vorlage bleiben bis M1 drin.
+- 2026-09-23: M1 – Beispiel-Bildschirme entfernt. Lokaler Speicher mit AsyncStorage (`src/lib/store.tsx`), Team-Logik in `src/lib/teams.ts`, alle Parameter in `src/lib/params.ts`. Stärkewerte werden in 0,5er-Schritten eingestellt (Start 6,0). Mindestens 2 Spieler pro Team zum Würfeln. Tests mit `npm test`.
