@@ -9,7 +9,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { RATING_LIMITS } from '@/lib/params';
-import { clampRating, formatRating } from '@/lib/ratings';
+import { formatRating, stepRating } from '@/lib/ratings';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -49,13 +49,11 @@ type StepperProps = {
   label: string;
   value: number;
   onChange: (value: number) => void;
-  step?: number;
 };
 
 /** Plus/Minus-Regler für Stärkewerte (1–11) */
-export function RatingStepper({ label, value, onChange, step = 1 }: StepperProps) {
+export function RatingStepper({ label, value, onChange }: StepperProps) {
   const theme = useTheme();
-  const change = (delta: number) => onChange(clampRating(value + delta));
 
   return (
     <View style={styles.stepperRow}>
@@ -66,7 +64,7 @@ export function RatingStepper({ label, value, onChange, step = 1 }: StepperProps
         accessibilityRole="button"
         accessibilityLabel={`${label} verringern`}
         disabled={value <= RATING_LIMITS.min}
-        onPress={() => change(-step)}
+        onPress={() => onChange(stepRating(value, -1))}
         style={({ pressed }) => [
           styles.stepButton,
           { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.6 : 1 },
@@ -78,7 +76,7 @@ export function RatingStepper({ label, value, onChange, step = 1 }: StepperProps
         accessibilityRole="button"
         accessibilityLabel={`${label} erhöhen`}
         disabled={value >= RATING_LIMITS.max}
-        onPress={() => change(step)}
+        onPress={() => onChange(stepRating(value, 1))}
         style={({ pressed }) => [
           styles.stepButton,
           { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.6 : 1 },
