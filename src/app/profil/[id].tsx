@@ -14,6 +14,7 @@ import { formatRating } from '@/lib/ratings';
 import {
   awards,
   dreamPartner,
+  eternalTable,
   favouriteOpponent,
   nemesis,
   strengthHistory,
@@ -117,6 +118,8 @@ function ProfileStats({
     stats.mvp
   ).filter((a) => a.playerId === playerId);
   const mvpCount = stats.mvp.get(playerId) ?? 0;
+  const eternal = eternalTable(stats.games);
+  const eternalPlace = eternal.findIndex((r) => r.playerId === playerId);
 
   if (s.played === 0 && mvpCount === 0) {
     return (
@@ -161,6 +164,11 @@ function ProfileStats({
         </View>
         {s.winRate !== null && (
           <ThemedText style={styles.winRate}>Siegquote {pct(s.winRate)}</ThemedText>
+        )}
+        {eternalPlace >= 0 && (
+          <ThemedText style={styles.centerText}>
+            Ewige Tabelle: Platz {eternalPlace + 1} · {eternal[eternalPlace].points} Punkte
+          </ThemedText>
         )}
         <View style={styles.row}>
           <ThemedText type="smallBold" style={styles.flex}>

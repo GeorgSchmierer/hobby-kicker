@@ -284,3 +284,43 @@ export function mvpTitles(votes: { sessionId: string; playerId: string }[]): Map
   }
   return titles;
 }
+
+/** Punkte wie im Fußball */
+export const POINTS = { W: 3, D: 1, L: 0 } as const;
+
+export type EternalRow = {
+  playerId: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  points: number;
+};
+
+/**
+ * Ewige Tabelle: 3 Punkte je Sieg, 1 je Unentschieden. Optional nur ein Jahr („2026“).
+ * Sortierung: Punkte, dann Siege, dann weniger Spiele (bessere Ausbeute).
+ */
+export function eternalTable(games: Game[], year?: string): EternalRow[] {
+  const rows = new Map<string, EternalRow>();
+  for (const g of games) {
+    if (year && !g.playedOn.startsWith(year)) continue;
+    const row =
+      rows.get(g.playerId) ??
+      { playerId: g.playerId, played: 0, wins: 0, draws: 0, losses: 0, points: 0 };
+    row.played += 1;
+    if (g.outcome === 'W') row.wins += 1;
+    else if (g.outcome === 'D') row.draws += 1;
+    else row.losses += 1;
+    row.points += POINTS[g.outcome];
+    rows.set(g.playerId, row);
+  }
+  return [...rows.values()].sort(
+    (a, b) => b.points - a.points || b.wins - a.wins || a.played - b.played
+  );
+}
+
+/** Jahre, in denen gespielt wurde – neuestes zuerst */
+export function seasons(games: Game[]): string[] {
+  return [...new Set(games.map((g) => g.playedOn.slice(0, 4)).filter(Boolean))].sort().reverse();
+}

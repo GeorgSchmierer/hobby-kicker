@@ -2,9 +2,11 @@ import {
   awards,
   buildGames,
   dreamPartner,
+  eternalTable,
   favouriteOpponent,
   mvpTitles,
   nemesis,
+  seasons,
   sessionMvps,
   strengthHistory,
   summarize,
@@ -184,5 +186,46 @@ describe('MVP', () => {
     expect(list).toEqual([
       { emoji: '⭐', title: 'MVP-Sammler', playerId: 'a', detail: '2× MVP des Tages' },
     ]);
+  });
+});
+
+describe('eternalTable', () => {
+  const games = buildGames([
+    match(['a'], ['b'], 1, '2026-03-01'), // a S, b N
+    match(['a'], ['b'], 0.5, '2026-04-01'), // beide U
+    match(['b'], ['c'], 1, '2027-01-10'), // b S, c N
+    match(['b'], ['a'], 1, '2027-02-10'), // b S, a N
+  ]);
+
+  it('3 Punkte je Sieg, 1 je Unentschieden, sortiert nach Punkten', () => {
+    const table = eternalTable(games);
+    expect(table.map((r) => [r.playerId, r.points, r.played, r.wins, r.draws, r.losses])).toEqual([
+      ['b', 7, 4, 2, 1, 1],
+      ['a', 4, 3, 1, 1, 1],
+      ['c', 0, 1, 0, 0, 1],
+    ]);
+  });
+
+  it('lässt sich auf ein Jahr eingrenzen', () => {
+    const t2026 = eternalTable(games, '2026');
+    expect(t2026.map((r) => [r.playerId, r.points])).toEqual([
+      ['a', 4],
+      ['b', 1],
+    ]);
+  });
+
+  it('bei gleichen Punkten zählen mehr Siege', () => {
+    const tie = buildGames([
+      match(['x'], ['y'], 1), // x 3
+      match(['y'], ['z'], 0.5), // y 1, z 1
+      match(['y'], ['z'], 0.5), // y 2, z 2
+      match(['y'], ['z'], 0.5), // y 3, z 3
+    ]);
+    // x: 3 Punkte aus 1 Sieg; y: 3 Punkte aus 3 Unentschieden (+1 Niederlage)
+    expect(eternalTable(tie)[0].playerId).toBe('x');
+  });
+
+  it('listet die Jahre, neuestes zuerst', () => {
+    expect(seasons(games)).toEqual(['2027', '2026']);
   });
 });
