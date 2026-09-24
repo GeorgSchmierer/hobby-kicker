@@ -14,6 +14,7 @@ import { useGroup, type Member } from '@/lib/group';
 import { APP_URL } from '@/lib/params';
 import { shareText } from '@/lib/share';
 import { errorMessage } from '@/lib/supabase';
+import { applyUpdate, fetchLatestVersion, isNewer, shortVersion } from '@/lib/updates';
 
 export default function GroupScreen() {
   const theme = useTheme();
@@ -68,6 +69,14 @@ export default function GroupScreen() {
     const outcome = await shareText(message);
     if (outcome === 'copied') setShareInfo('Einladung kopiert – jetzt z. B. in WhatsApp einfügen.');
     if (outcome === 'failed') setShareInfo('Bitte den Code oben abschreiben oder markieren und kopieren.');
+  };
+
+  const [updateInfo, setUpdateInfo] = useState<string | null>(null);
+  const checkForUpdate = async () => {
+    setUpdateInfo('wird geprüft …');
+    const latest = await fetchLatestVersion();
+    if (isNewer(latest)) applyUpdate();
+    else setUpdateInfo(latest ? 'aktuell ✅' : 'keine Verbindung');
   };
 
   const newCode = async () => {
@@ -239,6 +248,15 @@ export default function GroupScreen() {
             onPress={removeAccount}
           />
         </ThemedView>
+
+        {/* Version und Updates */}
+        <View style={styles.versionRow}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
+            Version {shortVersion()}
+            {updateInfo ? ` · ${updateInfo}` : ''}
+          </ThemedText>
+          <SmallButton title="🔄 Nach Updates suchen" onPress={checkForUpdate} />
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -300,6 +318,7 @@ const styles = StyleSheet.create({
   },
   memberName: { fontSize: 17, fontWeight: 700 },
   memberActions: { flexDirection: 'row', gap: Spacing.two },
+  versionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   smallButton: {
     minHeight: 40,
     paddingHorizontal: Spacing.two,

@@ -6,6 +6,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 // früh laden, damit Android den „Installieren“-Dialog rechtzeitig anbieten kann
 import '@/lib/install';
 import { ThemedView } from '@/components/themed-view';
+import { UpdateBanner } from '@/components/update-banner';
 import { useTheme } from '@/hooks/use-theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { GroupProvider, useGroup } from '@/lib/group';
@@ -22,6 +23,7 @@ export default function RootLayout() {
           <StoreProvider>
             <AnimatedSplashOverlay />
             <RootNavigator />
+            <UpdateBanner />
           </StoreProvider>
         </GroupProvider>
       </AuthProvider>
