@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BigButton } from '@/components/controls';
 import { ErrorText, Field } from '@/components/form';
+import { InstallHint } from '@/components/install-hint';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -63,6 +64,8 @@ export default function SignInScreen() {
             <ThemedText type="subtitle" style={styles.center}>
               Hobby-Kicker
             </ThemedText>
+
+            {!codeSent && <InstallHint dismissible={false} />}
 
             {!codeSent ? (
               <>

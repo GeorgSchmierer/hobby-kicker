@@ -3,6 +3,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ActivityIndicator, useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+// früh laden, damit Android den „Installieren“-Dialog rechtzeitig anbieten kann
+import '@/lib/install';
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@/hooks/use-theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -68,6 +70,8 @@ function RootNavigator() {
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="anmelden" options={{ title: 'Anmelden', headerShown: false }} />
       </Stack.Protected>
+      {/* Immer erreichbar – auch vor der Anmeldung */}
+      <Stack.Screen name="hilfe" options={{ title: 'App installieren' }} />
     </Stack>
   );
 }

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/controls';
+import { InstallHint } from '@/components/install-hint';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -78,6 +79,7 @@ export default function MatchdayScreen() {
   return (
     <ThemedView style={styles.screen}>
       <View style={styles.content}>
+        <InstallHint />
         {today && (
           <Pressable
             accessibilityRole="button"

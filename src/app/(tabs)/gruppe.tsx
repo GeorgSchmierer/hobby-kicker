@@ -64,7 +64,7 @@ export default function GroupScreen() {
 
   const [shareInfo, setShareInfo] = useState<string | null>(null);
   const shareCode = async () => {
-    const message = `Komm in unsere Kicker-Gruppe „${group.name}“ beim Hobby-Kicker!\n\n1. App öffnen: ${APP_URL}\n2. Mit deiner E-Mail anmelden\n3. Einladungscode eingeben: ${group.invite_code}`;
+    const message = `Komm in unsere Kicker-Gruppe „${group.name}“ beim Hobby-Kicker!\n\n1. Link öffnen: ${APP_URL}\n2. Am besten zuerst aufs Handy holen – die Anleitung steht direkt auf der Startseite („App auf den Home-Bildschirm legen“)\n3. Mit deiner E-Mail anmelden\n4. Einladungscode eingeben: ${group.invite_code}`;
     const outcome = await shareText(message);
     if (outcome === 'copied') setShareInfo('Einladung kopiert – jetzt z. B. in WhatsApp einfügen.');
     if (outcome === 'failed') setShareInfo('Bitte den Code oben abschreiben oder markieren und kopieren.');
@@ -197,6 +197,12 @@ export default function GroupScreen() {
           </ThemedView>
         )}
 
+        <BigButton
+          title="📲 App installieren – Anleitung"
+          variant="secondary"
+          style={[styles.outlined, { borderColor: theme.border }]}
+          onPress={() => router.push('/hilfe')}
+        />
         <BigButton
           title="Gruppe wechseln / neue Gruppe"
           variant="secondary"
