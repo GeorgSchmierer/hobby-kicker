@@ -7,12 +7,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/lib/auth';
 import { useGroup, type Player } from '@/lib/group';
 import { formatRating } from '@/lib/ratings';
 import { strength } from '@/lib/teams';
 
 export default function PlayersScreen() {
   const { players, playersLoaded, isAdmin, refreshPlayers } = useGroup();
+  const myId = useAuth().session?.user.id;
   useFocusEffect(
     useCallback(() => {
       refreshPlayers().catch(() => {});
@@ -39,7 +41,7 @@ export default function PlayersScreen() {
         <FlatList
           data={sorted}
           keyExtractor={(p) => p.id}
-          renderItem={({ item }) => <PlayerRow player={item} />}
+          renderItem={({ item }) => <PlayerRow player={item} isMe={!!myId && item.user_id === myId} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             playersLoaded ? (
@@ -54,7 +56,7 @@ export default function PlayersScreen() {
   );
 }
 
-function PlayerRow({ player }: { player: Player }) {
+function PlayerRow({ player, isMe }: { player: Player; isMe: boolean }) {
   const theme = useTheme();
   return (
     <Pressable
@@ -65,7 +67,10 @@ function PlayerRow({ player }: { player: Player }) {
         { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : player.active ? 1 : 0.5 },
       ]}>
       <View style={styles.rowText}>
-        <ThemedText style={styles.name}>{player.name}</ThemedText>
+        <ThemedText style={styles.name}>
+          {player.name}
+          {isMe ? ' (du)' : ''}
+        </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           Abwehr {formatRating(player.defense)} · Angriff {formatRating(player.attack)}
           {player.active ? '' : ' · inaktiv'}

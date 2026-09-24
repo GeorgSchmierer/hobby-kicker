@@ -34,6 +34,8 @@ export type Player = {
   attack: number;
   active: boolean;
   games_played: number;
+  /** verknüpftes Nutzerkonto (Mitglied), falls zugeordnet */
+  user_id: string | null;
 };
 
 export type Member = {
@@ -65,6 +67,9 @@ type GroupState = {
   loadMembers: () => Promise<Member[]>;
   setMemberRole: (userId: string, role: Role) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
+  setMemberName: (userId: string, name: string) => Promise<void>;
+  /** Mitglied einem Spieler zuordnen (null = Zuordnung aufheben) */
+  linkPlayer: (userId: string, playerId: string | null) => Promise<void>;
 };
 
 const GroupContext = createContext<GroupState | null>(null);
@@ -79,6 +84,7 @@ function toPlayer(row: Record<string, unknown>): Player {
     attack: Number(row.attack),
     active: Boolean(row.active),
     games_played: Number(row.games_played),
+    user_id: row.user_id ? String(row.user_id) : null,
   };
 }
 
@@ -139,7 +145,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     if (!currentId) return;
     const { data, error } = await supabase
       .from('players')
-      .select('id, name, defense, attack, active, games_played')
+      .select('id, name, defense, attack, active, games_played, user_id')
       .eq('group_id', currentId);
     if (error) throw error;
     setPlayers((data ?? []).map(toPlayer));
@@ -268,6 +274,38 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     [currentId]
   );
 
+  const setMemberName = useCallback(
+    async (memberId: string, name: string) => {
+      if (!currentId) return;
+      const { error } = await supabase.rpc('set_member_name', {
+        p_group: currentId,
+        p_user: memberId,
+        p_name: name.trim(),
+      });
+      if (error) throw error;
+    },
+    [currentId]
+  );
+
+  const linkPlayer = useCallback(
+    async (memberId: string, playerId: string | null) => {
+      if (!currentId) return;
+      // erst alte Zuordnung lösen (ein Konto gehört zu höchstens einem Spieler)
+      const unlink = await supabase
+        .from('players')
+        .update({ user_id: null })
+        .eq('group_id', currentId)
+        .eq('user_id', memberId);
+      if (unlink.error) throw unlink.error;
+      if (playerId) {
+        const { error } = await supabase.from('players').update({ user_id: memberId }).eq('id', playerId);
+        if (error) throw error;
+      }
+      await refreshPlayers();
+    },
+    [currentId, refreshPlayers]
+  );
+
   const value = useMemo<GroupState>(
     () => ({
       groups,
@@ -288,6 +326,8 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       loadMembers,
       setMemberRole,
       removeMember,
+      setMemberName,
+      linkPlayer,
     }),
     [
       groups,
@@ -308,6 +348,8 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       loadMembers,
       setMemberRole,
       removeMember,
+      setMemberName,
+      linkPlayer,
     ]
   );
 

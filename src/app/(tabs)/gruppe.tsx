@@ -28,6 +28,9 @@ export default function GroupScreen() {
     leaveGroup,
     setMemberRole,
     removeMember,
+    setMemberName,
+    linkPlayer,
+    players,
   } = useGroup();
   const group = current!;
   const myId = session?.user.id;
@@ -36,6 +39,11 @@ export default function GroupScreen() {
   const [groupName, setGroupName] = useState(group.name);
   const [myName, setMyName] = useState(profile?.display_name ?? '');
   const [busy, setBusy] = useState(false);
+  // Mitglied, das der Admin gerade bearbeitet
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const playerOf = (userId: string) => players.find((p) => p.user_id === userId);
+  const myPlayer = myId ? playerOf(myId) : undefined;
   const [error, setError] = useState<string | null>(null);
 
   const reloadMembers = useCallback(() => {
@@ -93,6 +101,19 @@ export default function GroupScreen() {
       await setMemberRole(m.user_id, m.role === 'admin' ? 'member' : 'admin');
       reloadMembers();
     });
+
+  const startEdit = (m: Member) => {
+    setEditing(editing === m.user_id ? null : m.user_id);
+    setEditName(m.display_name ?? '');
+  };
+
+  const saveName = (m: Member) =>
+    run(async () => {
+      await setMemberName(m.user_id, editName);
+      reloadMembers();
+    });
+
+  const choosePlayer = (m: Member, playerId: string | null) => run(() => linkPlayer(m.user_id, playerId));
 
   const kick = async (m: Member) => {
     const ok = await confirmAction(
@@ -160,30 +181,88 @@ export default function GroupScreen() {
           <ThemedText style={styles.cardTitle}>Mitglieder ({members.length})</ThemedText>
           {members.map((m) => {
             const isMe = m.user_id === myId;
+            const linked = playerOf(m.user_id);
+            const canEdit = isAdmin && !isMe;
+            const open = editing === m.user_id;
             return (
-              <View key={m.user_id} style={[styles.memberRow, { borderColor: theme.border }]}>
-                <View style={styles.flex}>
-                  <ThemedText style={styles.memberName}>
-                    {m.display_name ?? 'Ohne Namen'}
-                    {isMe ? ' (du)' : ''}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {m.role === 'admin' ? 'Admin' : 'Mitglied'}
-                  </ThemedText>
+              <View key={m.user_id} style={[styles.memberBlock, { borderColor: theme.border }]}>
+                <View style={styles.memberRow}>
+                  <View style={styles.flex}>
+                    <ThemedText style={styles.memberName}>
+                      {m.display_name ?? 'Ohne Namen'}
+                      {isMe ? ' (du)' : ''}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {m.role === 'admin' ? 'Admin' : 'Mitglied'}
+                      {' · '}
+                      {linked ? `Spieler: ${linked.name}` : 'kein Spieler zugeordnet'}
+                    </ThemedText>
+                  </View>
+                  {isAdmin && (
+                    <SmallButton
+                      title={open ? 'Fertig' : 'Bearbeiten'}
+                      disabled={busy}
+                      onPress={() => startEdit(m)}
+                    />
+                  )}
                 </View>
-                {isAdmin && !isMe && (
-                  <View style={styles.memberActions}>
-                    <SmallButton
-                      title={m.role === 'admin' ? 'Admin entziehen' : 'Zum Admin'}
-                      disabled={busy}
-                      onPress={() => changeRole(m)}
-                    />
-                    <SmallButton
-                      title="Entfernen"
-                      danger
-                      disabled={busy}
-                      onPress={() => kick(m)}
-                    />
+
+                {open && (
+                  <View style={styles.editBox}>
+                    {canEdit && (
+                      <>
+                        <ThemedText type="smallBold">Name</ThemedText>
+                        <View style={styles.memberRow}>
+                          <Field
+                            value={editName}
+                            onChangeText={setEditName}
+                            maxLength={30}
+                            style={styles.flex}
+                          />
+                          <SmallButton
+                            title="Speichern"
+                            disabled={busy || !editName.trim() || editName.trim() === m.display_name}
+                            onPress={() => saveName(m)}
+                          />
+                        </View>
+                      </>
+                    )}
+
+                    <ThemedText type="smallBold">Spieler</ThemedText>
+                    <View style={styles.chips}>
+                      {players
+                        .filter((p) => p.active || p.id === linked?.id)
+                        .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+                        .map((p) => {
+                          const selected = p.id === linked?.id;
+                          const taken = !!p.user_id && !selected;
+                          return (
+                            <Chip
+                              key={p.id}
+                              title={taken ? `${p.name} (vergeben)` : p.name}
+                              selected={selected}
+                              disabled={busy || taken}
+                              onPress={() => choosePlayer(m, selected ? null : p.id)}
+                            />
+                          );
+                        })}
+                    </View>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {linked
+                        ? 'Nochmal auf den Spieler tippen hebt die Zuordnung auf.'
+                        : 'Welcher Spieler ist diese Person? Einfach antippen.'}
+                    </ThemedText>
+
+                    {canEdit && (
+                      <View style={styles.memberActions}>
+                        <SmallButton
+                          title={m.role === 'admin' ? 'Admin entziehen' : 'Zum Admin'}
+                          disabled={busy}
+                          onPress={() => changeRole(m)}
+                        />
+                        <SmallButton title="Entfernen" danger disabled={busy} onPress={() => kick(m)} />
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -240,6 +319,14 @@ export default function GroupScreen() {
               })
             }
           />
+          {myPlayer && (
+            <BigButton
+              title={`👤 Mein Spielerprofil (${myPlayer.name})`}
+              variant="secondary"
+              style={[styles.outlined, { borderColor: theme.border }]}
+              onPress={() => router.push({ pathname: '/profil/[id]', params: { id: myPlayer.id } })}
+            />
+          )}
           <BigButton title="Abmelden" variant="secondary" disabled={busy} onPress={signOut} />
           <BigButton
             title="Konto löschen"
@@ -293,6 +380,40 @@ function SmallButton({
   );
 }
 
+function Chip({
+  title,
+  selected,
+  disabled,
+  onPress,
+}: {
+  title: string;
+  selected: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          borderColor: selected ? theme.primary : theme.border,
+          backgroundColor: selected ? theme.primary : 'transparent',
+          opacity: disabled ? 0.4 : pressed ? 0.6 : 1,
+        },
+      ]}>
+      <ThemedText type="small" style={{ color: selected ? theme.onPrimary : theme.text, fontWeight: 700 }}>
+        {selected ? '✓ ' : ''}
+        {title}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: {
@@ -308,13 +429,20 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 18, fontWeight: 700 },
   code: { fontSize: 34, lineHeight: 44, fontWeight: 700, letterSpacing: 4, textAlign: 'center' },
   outlined: { borderWidth: 1 },
-  memberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
+  memberBlock: {
     paddingVertical: Spacing.two,
     borderTopWidth: StyleSheet.hairlineWidth,
-    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  editBox: { gap: Spacing.two, paddingLeft: Spacing.two },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  chip: {
+    minHeight: 40,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
   },
   memberName: { fontSize: 17, fontWeight: 700 },
   memberActions: { flexDirection: 'row', gap: Spacing.two },
