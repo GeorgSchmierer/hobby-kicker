@@ -7,6 +7,7 @@
  * (outbox.ts). Beim Lesen werden noch wartende Einträge mit angezeigt (pending), und ohne Netz
  * kommt der zuletzt geladene Stand aus dem Zwischenspeicher (offline-cache.ts).
  */
+import type { Badge } from './badges';
 import { isNetworkError, withCache } from './offline-cache';
 import { newId, pendingResults, pendingStart, pendingStarts, submit } from './outbox';
 import { berlinToday } from './schedule';
@@ -48,8 +49,24 @@ export type Result = {
   created_at: string;
   matches: Match[];
   changes: RatingChange[];
+  /** Einzelne Wertungsänderungen je Partie (für „Warum hat sich mein Wert geändert?“) */
+  details: ChangeDetail[];
+  /** durch dieses Ergebnis vergebene Abzeichen */
+  badges: Badge[];
   /** noch auf dem Gerät, wartet auf Netz (noch nicht gewertet) */
   pending?: boolean;
+};
+
+/** Eine Wertungsänderung eines Spielers in einer Partie */
+export type ChangeDetail = {
+  match_id: string;
+  team_id: string;
+  player_id: string;
+  defense_before: number;
+  attack_before: number;
+  defense_after: number;
+  attack_after: number;
+  games_before: number;
 };
 
 export type SessionDetail = {
@@ -137,6 +154,11 @@ export async function loadSession(sessionId: string): Promise<SessionDetail | nu
     if (networkError) throw networkError;
     return null;
   }
+  // Zwischengespeichertes aus älteren App-Versionen kennt diese Felder noch nicht
+  detail = {
+    ...detail,
+    results: detail.results.map((r) => ({ ...r, details: r.details ?? [], badges: r.badges ?? [] })),
+  };
   const teams = detail.teams;
   const known = new Set(detail.results.map((r) => r.id));
   const waiting: Result[] = pendingResults(sessionId)
@@ -169,6 +191,8 @@ export async function loadSession(sessionId: string): Promise<SessionDetail | nu
               },
             ],
       changes: [],
+      details: [],
+      badges: [],
       pending: true,
     }));
   return { ...detail, results: [...detail.results, ...waiting] };
@@ -186,7 +210,8 @@ async function fetchSession(sessionId: string): Promise<SessionDetail | null> {
        teams (id, idx, team_players (player_id)),
        results (id, seq, kind, created_at,
          matches (id, team_a, team_b, goals_a, goals_b, score_a),
-         rating_changes (id, player_id, defense_before, attack_before, defense_after, attack_after)),
+         rating_changes (id, match_id, team_id, player_id, defense_before, attack_before, defense_after, attack_after, games_before),
+         badges (player_id, kind, level)),
        mvp_votes (voter_id, player_id)`
     )
     .eq('id', sessionId)
@@ -214,6 +239,17 @@ async function fetchSession(sessionId: string): Promise<SessionDetail | null> {
         created_at: r.created_at,
         matches: (r.matches ?? []).map((m: any) => ({ ...m, score_a: Number(m.score_a) })),
         changes: summarizeChanges(r.rating_changes ?? []),
+        details: (r.rating_changes ?? []).map((c: any) => ({
+          match_id: c.match_id,
+          team_id: c.team_id,
+          player_id: c.player_id,
+          defense_before: Number(c.defense_before),
+          attack_before: Number(c.attack_before),
+          defense_after: Number(c.defense_after),
+          attack_after: Number(c.attack_after),
+          games_before: Number(c.games_before),
+        })),
+        badges: r.badges ?? [],
       }))
       .sort((a: Result, b: Result) => a.seq - b.seq),
     votes: s.mvp_votes ?? [],

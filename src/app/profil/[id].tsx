@@ -24,6 +24,8 @@ import {
   summarize,
   type PairStat,
 } from '@/lib/stats';
+import { badgeEmoji, badgeHint, badgeTitle, loadPlayerBadges, type Badge } from '@/lib/badges';
+import { formatDate } from '@/lib/sessions';
 import { loadStandings, type StandingRow } from '@/lib/standings';
 import { errorMessage } from '@/lib/supabase';
 import { strength } from '@/lib/teams';
@@ -167,6 +169,20 @@ function ProfileStats({
     }, [groupId])
   );
   const eternalPlace = eternal.findIndex((r) => r.playerId === playerId);
+  // Abzeichen (TODO C3), vergeben vom Server
+  const [badges, setBadges] = useState<Badge[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      loadPlayerBadges(playerId)
+        .then(setBadges)
+        .catch(() => setBadges([]));
+    }, [playerId])
+  );
+  // Letzte Wertungsänderungen mit Begründung (TODO C5), neueste zuerst
+  const recentReasons = stats.explained
+    .filter((e) => e.playerId === playerId)
+    .sort((a, b) => b.seq - a.seq)
+    .slice(0, 5);
 
   if (s.played === 0 && mvpCount === 0) {
     return (
@@ -236,9 +252,36 @@ function ProfileStats({
         )}
       </ThemedView>
 
+      {badges.length > 0 && (
+        <ThemedView type="backgroundElement" style={styles.card}>
+          <ThemedText type="smallBold">Abzeichen</ThemedText>
+          {badges.map((b) => (
+            <View key={`${b.kind}-${b.level}`} style={styles.row}>
+              <ThemedText style={styles.badgeEmoji}>{badgeEmoji(b)}</ThemedText>
+              <View style={styles.flex}>
+                <ThemedText style={styles.badgeTitle}>{badgeTitle(b)}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {badgeHint(b)}
+                </ThemedText>
+              </View>
+            </View>
+          ))}
+        </ThemedView>
+      )}
+
       <ThemedView type="backgroundElement" style={styles.card}>
         <ThemedText type="smallBold">Stärke-Verlauf</ThemedText>
         <StrengthChart points={history} />
+        {recentReasons.length > 0 && (
+          <View style={styles.reasons}>
+            <ThemedText type="smallBold">Warum hat sich der Wert geändert?</ThemedText>
+            {recentReasons.map((r) => (
+              <ThemedText key={r.seq} type="small" themeColor="textSecondary">
+                {formatDate(r.playedOn)}: {r.text}
+              </ThemedText>
+            ))}
+          </View>
+        )}
       </ThemedView>
 
       <ThemedView type="backgroundElement" style={styles.card}>
@@ -330,6 +373,9 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.six,
   },
   flex: { flex: 1 },
+  badgeEmoji: { fontSize: 26, lineHeight: 32 },
+  badgeTitle: { fontSize: 16, fontWeight: 700 },
+  reasons: { gap: Spacing.one, marginTop: Spacing.two },
   photoRow: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   card: { borderRadius: 14, padding: Spacing.three, gap: Spacing.two },

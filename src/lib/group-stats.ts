@@ -6,6 +6,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
+import { explainResult } from './explain';
 import { buildGames, mvpTitles, withoutGuests, type Game, type ResultInput } from './stats';
 import { supabase } from './supabase';
 
@@ -18,28 +19,34 @@ export type StrengthChange = {
   after: number;
 };
 
+/** Eine Wertungsänderung mit Begründung in einem Satz (TODO C5) */
+export type ExplainedChange = { seq: number; playedOn: string; playerId: string; text: string };
+
 export type GroupStats = {
   games: Game[];
   changes: StrengthChange[];
+  explained: ExplainedChange[];
   /** Anzahl „MVP des Tages“-Titel je Spieler */
   mvp: Map<string, number>;
 };
 
 export async function loadGroupStats(groupId: string): Promise<GroupStats> {
-  const [resultsRes, votesRes, guestsRes] = await Promise.all([
+  const [resultsRes, votesRes, guestsRes, settingsRes] = await Promise.all([
     supabase
       .from('results')
       .select(
         `id, seq, kind, sessions (played_on),
-         matches (id, team_a, team_b, score_a),
-         rating_changes (id, match_id, team_id, player_id, defense_before, attack_before, defense_after, attack_after)`
+         matches (id, team_a, team_b, goals_a, goals_b, score_a),
+         rating_changes (id, match_id, team_id, player_id, defense_before, attack_before, defense_after, attack_after, games_before)`
       )
       .eq('group_id', groupId)
       .order('seq'),
     supabase.from('mvp_votes').select('session_id, player_id').eq('group_id', groupId),
     // Gäste erscheinen nicht in der Statistik (TODO A6)
     supabase.from('players').select('id').eq('group_id', groupId).eq('is_guest', true),
+    supabase.from('rating_settings').select('scale_d').eq('id', 1).maybeSingle(),
   ]);
+  const scaleD = Number(settingsRes.data?.scale_d ?? 10);
   if (resultsRes.error) throw resultsRes.error;
   if (votesRes.error) throw votesRes.error;
   if (guestsRes.error) throw guestsRes.error;
@@ -47,6 +54,7 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
 
   const results: ResultInput[] = [];
   const changes: StrengthChange[] = [];
+  const explained: ExplainedChange[] = [];
   for (const r of (resultsRes.data ?? []) as any[]) {
     const playedOn: string = r.sessions?.played_on ?? '';
     const seq = Number(r.seq);
@@ -65,6 +73,24 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
         scoreA: Number(m.score_a),
       })),
     });
+    const texts = explainResult(
+      {
+        kind: r.kind,
+        matches: (r.matches ?? []).map((m: any) => ({ ...m, score_a: Number(m.score_a) })),
+        details: (r.rating_changes ?? []).map((c: any) => ({
+          ...c,
+          defense_before: Number(c.defense_before),
+          attack_before: Number(c.attack_before),
+          defense_after: Number(c.defense_after),
+          attack_after: Number(c.attack_after),
+          games_before: Number(c.games_before),
+        })),
+      },
+      scaleD
+    );
+    for (const [playerId, text] of texts) {
+      if (!guests.has(playerId)) explained.push({ seq, playedOn, playerId, text });
+    }
     for (const c of [...(r.rating_changes ?? [])].filter((c: any) => !guests.has(c.player_id)).sort((a: any, b: any) => Number(a.id) - Number(b.id))) {
       changes.push({
         seq,
@@ -80,7 +106,7 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
       .filter((v: any) => !guests.has(v.player_id))
       .map((v: any) => ({ sessionId: v.session_id, playerId: v.player_id }))
   );
-  return { games: withoutGuests(buildGames(results), guests), changes, mvp };
+  return { games: withoutGuests(buildGames(results), guests), changes, explained, mvp };
 }
 
 /** Statistik der Gruppe, wird beim Öffnen des Bildschirms frisch geladen */

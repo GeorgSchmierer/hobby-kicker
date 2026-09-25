@@ -17,6 +17,8 @@ import { confirmAction } from '@/lib/confirm';
 import { averageWinChances, formatPercent, funTeamNames, teamsShareText } from '@/lib/fun';
 import { useGroup, type Player } from '@/lib/group';
 import { upcomingGames, type Pairing } from '@/lib/match-plan';
+import { badgeEmoji, badgeMessage, badgeTitle } from '@/lib/badges';
+import { explainResult } from '@/lib/explain';
 import { useOutbox } from '@/lib/outbox';
 import { formatRating } from '@/lib/ratings';
 import {
@@ -219,6 +221,11 @@ export default function SessionScreen() {
                 ? '🤝 Unentschieden – gut gekämpft!'
                 : `🎉 ${teamName(party.winnerIdx)} gewinnt!`}
             </ThemedText>
+            {(newestFirst[0]?.badges ?? []).map((b) => (
+              <ThemedText key={`${b.player_id}-${b.kind}-${b.level}`} style={styles.bannerBadge}>
+                {badgeMessage(lookup.get(b.player_id)?.name ?? '?', b)}
+              </ThemedText>
+            ))}
           </ThemedView>
         )}
 
@@ -306,6 +313,7 @@ export default function SessionScreen() {
                 expanded={shownExpanded === result.id}
                 onToggle={() => setExpanded(shownExpanded === result.id ? '' : result.id)}
                 canUndo={isAdmin && !result.pending && result.id === latestId}
+                scaleD={scaleD}
                 busy={busy}
                 onUndo={() => undo(result)}
               />
@@ -416,6 +424,7 @@ function ResultCard({
   canUndo,
   busy,
   onUndo,
+  scaleD,
 }: {
   result: Result;
   teamIdx: Map<string, number>;
@@ -425,8 +434,11 @@ function ResultCard({
   canUndo: boolean;
   busy: boolean;
   onUndo: () => void;
+  scaleD: number;
 }) {
   const theme = useTheme();
+  // „Warum hat sich mein Wert geändert?“ (TODO C5)
+  const explanations = expanded && !result.pending ? explainResult(result, scaleD) : new Map<string, string>();
   const changes = [...result.changes].sort(
     (a, b) =>
       b.defense_after - b.defense_before - (a.defense_after - a.defense_before) ||
@@ -438,6 +450,11 @@ function ResultCard({
       <Pressable accessibilityRole="button" onPress={onToggle} style={styles.resultHeader}>
         <View style={styles.flex}>
           <ResultTitle result={result} teamIdx={teamIdx} />
+          {result.badges.map((b) => (
+            <ThemedText key={`${b.player_id}-${b.kind}-${b.level}`} type="small">
+              {badgeEmoji(b)} {lookup.get(b.player_id)?.name ?? '?'}: {badgeTitle(b)}
+            </ThemedText>
+          ))}
           {result.pending && (
             <ThemedText type="small" themeColor="textSecondary">
               ⏳ wartet auf Netz
@@ -458,26 +475,33 @@ function ResultCard({
             const diff = c.defense_after - c.defense_before;
             const sign = diff > 0.004 ? '+' : diff < -0.004 ? '−' : '±';
             return (
-              <View key={c.player_id} style={styles.changeRow}>
-                <ThemedText style={[styles.flex, styles.changeName]}>
-                  {lookup.get(c.player_id)?.name ?? '?'}
-                </ThemedText>
-                <View style={styles.changeValues}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Abwehr {formatRating(c.defense_before)} → {formatRating(c.defense_after)}
+              <View key={c.player_id} style={styles.changeBlock}>
+                <View style={styles.changeRow}>
+                  <ThemedText style={[styles.flex, styles.changeName]}>
+                    {lookup.get(c.player_id)?.name ?? '?'}
                   </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Angriff {formatRating(c.attack_before)} → {formatRating(c.attack_after)}
+                  <View style={styles.changeValues}>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Abwehr {formatRating(c.defense_before)} → {formatRating(c.defense_after)}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Angriff {formatRating(c.attack_before)} → {formatRating(c.attack_after)}
+                    </ThemedText>
+                  </View>
+                  <ThemedText
+                    style={[
+                      styles.changeDiff,
+                      { color: diff > 0.004 ? theme.primary : diff < -0.004 ? theme.danger : theme.textSecondary },
+                    ]}>
+                    {sign}
+                    {formatDiff(Math.abs(diff))}
                   </ThemedText>
                 </View>
-                <ThemedText
-                  style={[
-                    styles.changeDiff,
-                    { color: diff > 0.004 ? theme.primary : diff < -0.004 ? theme.danger : theme.textSecondary },
-                  ]}>
-                  {sign}
-                  {formatDiff(Math.abs(diff))}
-                </ThemedText>
+                {explanations.get(c.player_id) && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {explanations.get(c.player_id)}
+                  </ThemedText>
+                )}
               </View>
             );
           })}
@@ -580,6 +604,8 @@ const styles = StyleSheet.create({
   winner: { fontWeight: 800, textDecorationLine: 'underline' },
   changes: { gap: Spacing.two },
   changeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  changeBlock: { gap: 2, paddingBottom: Spacing.one },
+  bannerBadge: { fontSize: 16, fontWeight: 700, textAlign: 'center', marginTop: Spacing.one },
   changeName: { fontSize: 16, fontWeight: 600 },
   changeValues: { alignItems: 'flex-end' },
   changeDiff: { width: 56, textAlign: 'right', fontSize: 16, fontWeight: 700 },
