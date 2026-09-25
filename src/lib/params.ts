@@ -31,3 +31,9 @@ export const RATING_LIMITS = {
 
 /** Öffentliche Adresse der Web-App (für Einladungen und geteilte Teams) */
 export const APP_URL = 'https://hobby-kicker.vercel.app';
+
+/** Nachzügler einplanen (TODO A4) */
+export const LATE_PARAMS = {
+  /** Ein Tausch wird nur vorgeschlagen, wenn er die Kosten um mindestens so viel senkt. */
+  swapMinGain: 0.5,
+} as const;

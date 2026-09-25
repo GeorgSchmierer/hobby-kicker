@@ -1,5 +1,7 @@
 /**
  * Lädt alle Ergebnisse einer Gruppe und bereitet sie für die Statistik auf (src/lib/stats.ts).
+ * Wer in einer Partie für welches Team gespielt hat, steht in rating_changes (team_id) –
+ * nicht in team_players, denn dort steht nur die aktuelle Aufstellung (Nachzügler, Tausch).
  */
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -24,40 +26,38 @@ export type GroupStats = {
 };
 
 export async function loadGroupStats(groupId: string): Promise<GroupStats> {
-  const [resultsRes, teamsRes, votesRes] = await Promise.all([
+  const [resultsRes, votesRes] = await Promise.all([
     supabase
       .from('results')
       .select(
         `id, seq, kind, sessions (played_on),
-         matches (team_a, team_b, score_a),
-         rating_changes (id, player_id, defense_before, attack_before, defense_after, attack_after)`
+         matches (id, team_a, team_b, score_a),
+         rating_changes (id, match_id, team_id, player_id, defense_before, attack_before, defense_after, attack_after)`
       )
       .eq('group_id', groupId)
       .order('seq'),
-    supabase.from('teams').select('id, team_players (player_id)').eq('group_id', groupId),
     supabase.from('mvp_votes').select('session_id, player_id').eq('group_id', groupId),
   ]);
   if (resultsRes.error) throw resultsRes.error;
-  if (teamsRes.error) throw teamsRes.error;
   if (votesRes.error) throw votesRes.error;
-
-  const members = new Map<string, string[]>(
-    (teamsRes.data ?? []).map((t: any) => [t.id, (t.team_players ?? []).map((tp: any) => tp.player_id)])
-  );
 
   const results: ResultInput[] = [];
   const changes: StrengthChange[] = [];
   for (const r of (resultsRes.data ?? []) as any[]) {
     const playedOn: string = r.sessions?.played_on ?? '';
     const seq = Number(r.seq);
+    const lineup = (matchId: string, teamId: string): string[] =>
+      (r.rating_changes ?? [])
+        .filter((c: any) => c.match_id === matchId && c.team_id === teamId)
+        .map((c: any) => c.player_id);
     results.push({
       id: r.id,
       seq,
       kind: r.kind,
       playedOn,
       matches: (r.matches ?? []).map((m: any) => ({
-        teamA: members.get(m.team_a) ?? [],
-        teamB: members.get(m.team_b) ?? [],
+        teamA: lineup(m.id, m.team_a),
+        teamB: lineup(m.id, m.team_b),
         scoreA: Number(m.score_a),
       })),
     });

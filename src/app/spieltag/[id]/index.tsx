@@ -2,7 +2,7 @@ import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { BigButton } from '@/components/controls';
+import { BigButton, SmallButton } from '@/components/controls';
 import { ErrorText } from '@/components/form';
 import { Confetti } from '@/components/confetti';
 import { MvpVote } from '@/components/mvp-vote';
@@ -304,7 +304,18 @@ export default function SessionScreen() {
 
         {/* Teams */}
         <View style={styles.section}>
-          <ThemedText type="smallBold">Teams</ThemedText>
+          <View style={styles.row}>
+            <ThemedText type="smallBold" style={styles.flex}>
+              Teams
+            </ThemedText>
+            <SmallButton
+              title="+ Nachzügler"
+              disabled={busy}
+              onPress={() =>
+                router.push({ pathname: '/spieltag/[id]/nachzuegler', params: { id: detail.id } })
+              }
+            />
+          </View>
           {detail.teams.length === 2 && (
             <ChanceBar idxA={detail.teams[0].idx} idxB={detail.teams[1].idx} chanceA={chances[0]} />
           )}

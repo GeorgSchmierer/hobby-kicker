@@ -218,3 +218,29 @@ export function formatDate(isoDate: string): string {
     year: 'numeric',
   });
 }
+
+/** Nachzügler einem Team zuteilen, optional mit Tausch (move: Spieler wechselt in Team `to`) */
+export async function addLatePlayer(input: {
+  sessionId: string;
+  playerId: string;
+  teamId: string;
+  move?: { playerId: string; toTeamId: string } | null;
+}): Promise<void> {
+  const { error } = await supabase.rpc('add_late_player', {
+    p_session: input.sessionId,
+    p_player: input.playerId,
+    p_team: input.teamId,
+    p_move_player: input.move?.playerId ?? null,
+    p_move_to: input.move?.toTeamId ?? null,
+  });
+  if (error) throw error;
+}
+
+/** Spieler wieder aus dem Spieltag nehmen (nur solange er dort noch nicht gespielt hat) */
+export async function removeSessionPlayer(sessionId: string, playerId: string): Promise<void> {
+  const { error } = await supabase.rpc('remove_session_player', {
+    p_session: sessionId,
+    p_player: playerId,
+  });
+  if (error) throw error;
+}
