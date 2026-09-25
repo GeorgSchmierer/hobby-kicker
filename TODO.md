@@ -23,7 +23,7 @@
 - [x] **A2 Zu- und Absagen:** „Bin dabei“ / „Kann nicht“; Übersicht; auch für Spieler ohne Konto; Anwesenheit beim Spieltag vorausgefüllt.
 - [x] **A3 Spielplan für 3–4 Teams:** Reihenfolge der Partien, gleich oft spielen, nicht zweimal hintereinander pausieren; Ergebnis direkt im Plan eintragen.
 - [x] **A4 Nachzügler einplanen:** Spieler während des Spieltags hinzufügen, fairstes Team vorschlagen (evtl. Tausch); Wertung nur für seine Partien.
-- [ ] **A5 Offline-Modus:** Ergebnisse zwischenspeichern und später senden; Hinweis „Offline – 2 Ergebnisse warten“; keine doppelte Wertung.
+- [x] **A5 Offline-Modus:** Ergebnisse zwischenspeichern und später senden; Hinweis „Offline – 2 Ergebnisse warten“; keine doppelte Wertung.
 - [ ] **A6 Gastspieler:** Name + schwach/mittel/stark; nicht in Tabelle/Statistik; danach „als festen Spieler übernehmen?“.
 
 ## Paket B – Optik & Bedienung

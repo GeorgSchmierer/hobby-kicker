@@ -41,5 +41,13 @@
     </noscript>
     <!-- The root element for your Expo app. -->
     <div id="root"></div>
+    <!-- Offline-Modus: App auf dem Handy ablegen (nicht im Entwicklungsserver auf Port 8081) -->
+    <script>
+      if ('serviceWorker' in navigator && location.port !== '8081') {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+    </script>
   </body>
 </html>

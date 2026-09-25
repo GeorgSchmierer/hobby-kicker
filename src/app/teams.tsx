@@ -11,6 +11,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ErrorText } from '@/components/form';
 import { ChanceBar } from '@/components/team';
 import { averageWinChances, formatPercent, funTeamNames, teamsShareText } from '@/lib/fun';
+import { useAuth } from '@/lib/auth';
 import { useGroup, type Player } from '@/lib/group';
 import { formatRating } from '@/lib/ratings';
 import { APP_URL } from '@/lib/params';
@@ -25,6 +26,7 @@ export default function TeamsScreen() {
   const theme = useTheme();
   const { draw, setDraw } = useStore();
   const { players, current } = useGroup();
+  const userId = useAuth().session?.user.id ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +103,7 @@ export default function TeamsScreen() {
     setBusy(true);
     setError(null);
     try {
-      const id = await startSession(current!.id, draw.teams);
+      const id = await startSession(current!.id, draw.teams, userId);
       setDraw(null);
       router.replace({ pathname: '/spieltag/[id]', params: { id } });
     } catch (e) {

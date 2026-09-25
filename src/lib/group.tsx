@@ -15,6 +15,7 @@ import {
 } from 'react';
 
 import { useAuth } from './auth';
+import { withCache } from './offline-cache';
 import { clampRating } from './ratings';
 import { supabase } from './supabase';
 
@@ -106,15 +107,18 @@ export function GroupProvider({ children }: { children: ReactNode }) {
 
   const refreshGroups = useCallback(async () => {
     if (!userId) return;
-    const { data, error } = await supabase
-      .from('group_members')
-      .select('role, groups (id, name, invite_code)')
-      .eq('user_id', userId);
-    if (error) throw error;
-    const list: Group[] = (data ?? [])
-      .filter((row: any) => row.groups)
-      .map((row: any) => ({ ...row.groups, role: row.role }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    // ohne Netz: zuletzt geladener Stand (Offline-Modus)
+    const list = await withCache(`groups/${userId}`, async () => {
+      const { data, error } = await supabase
+        .from('group_members')
+        .select('role, groups (id, name, invite_code)')
+        .eq('user_id', userId);
+      if (error) throw error;
+      return (data ?? [])
+        .filter((row: any) => row.groups)
+        .map((row: any): Group => ({ ...row.groups, role: row.role }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    });
     setGroupsState({ userId, list });
   }, [userId]);
 
@@ -143,12 +147,15 @@ export function GroupProvider({ children }: { children: ReactNode }) {
 
   const refreshPlayers = useCallback(async () => {
     if (!currentId) return;
-    const { data, error } = await supabase
-      .from('players')
-      .select('id, name, defense, attack, active, games_played, user_id')
-      .eq('group_id', currentId);
-    if (error) throw error;
-    setPlayers((data ?? []).map(toPlayer));
+    const list = await withCache(`players/${currentId}`, async () => {
+      const { data, error } = await supabase
+        .from('players')
+        .select('id, name, defense, attack, active, games_played, user_id')
+        .eq('group_id', currentId);
+      if (error) throw error;
+      return (data ?? []).map(toPlayer);
+    });
+    setPlayers(list);
     setPlayersFor(currentId);
   }, [currentId]);
 

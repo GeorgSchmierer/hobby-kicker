@@ -16,6 +16,7 @@ import {
   recordMatch,
   recordTournamentWinner,
   type Outcome,
+  type SessionDetail,
   type SessionTeam,
 } from '@/lib/sessions';
 import { useScaleD } from '@/lib/settings';
@@ -27,16 +28,19 @@ type Mode = 'match' | 'tournament';
 export default function RecordResultScreen() {
   // a/b: vorausgewählte Teams (z. B. aus dem Spielplan)
   const { id, a, b } = useLocalSearchParams<{ id: string; a?: string; b?: string }>();
-  const [teams, setTeams] = useState<SessionTeam[] | null>(null);
+  const [loaded, setLoaded] = useState<SessionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadSession(id)
-      .then((s) => setTeams(s?.teams ?? []))
+      .then((s) => {
+        if (s) setLoaded(s);
+        else setError('Diesen Spieltag gibt es nicht (mehr).');
+      })
       .catch((e) => setError(errorMessage(e)));
   }, [id]);
 
-  if (!teams) {
+  if (!loaded) {
     return (
       <ThemedView style={[styles.screen, styles.center]}>
         <ActivityIndicator />
@@ -44,17 +48,31 @@ export default function RecordResultScreen() {
       </ThemedView>
     );
   }
-  return <ResultForm sessionId={id} teams={teams} initialA={a} initialB={b} />;
+  return (
+    <ResultForm
+      groupId={loaded.group_id}
+      sessionId={id}
+      teams={loaded.teams}
+      matchNo={loaded.results.length + 1}
+      initialA={a}
+      initialB={b}
+    />
+  );
 }
 
 function ResultForm({
+  groupId,
   sessionId,
   teams,
+  matchNo,
   initialA,
   initialB,
 }: {
+  groupId: string;
   sessionId: string;
   teams: SessionTeam[];
+  /** laufende Nummer dieser Partie am Spieltag (erkennt doppelte Einträge) */
+  matchNo: number;
   initialA?: string;
   initialB?: string;
 }) {
@@ -102,7 +120,9 @@ function ResultForm({
     try {
       if (mode === 'match') {
         await recordMatch({
+          groupId,
           sessionId,
+          matchNo,
           teamA: teamA!.id,
           teamB: teamB!.id,
           outcome: effectiveOutcome!,
@@ -114,7 +134,7 @@ function ResultForm({
             effectiveOutcome === 'a' ? teamA!.idx : effectiveOutcome === 'b' ? teamB!.idx : null,
         });
       } else {
-        await recordTournamentWinner(sessionId, winner!.id);
+        await recordTournamentWinner({ groupId, sessionId, matchNo, winnerTeam: winner!.id });
         setCelebration({ sessionId, winnerIdx: winner!.idx });
       }
       router.back();

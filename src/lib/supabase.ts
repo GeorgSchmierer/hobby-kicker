@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type Session } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -59,4 +59,19 @@ export function errorMessage(error: unknown): string {
   }
   // Eigene Meldungen der Server-Funktionen sind bereits deutsch
   return message || 'Etwas ist schiefgelaufen. Bitte versuch es noch einmal.';
+}
+
+/**
+ * Die auf dem Gerät gespeicherte Anmeldung, auch wenn sie abgelaufen ist (für den Offline-Modus:
+ * ohne Netz kann Supabase sie nicht auffrischen, die App soll trotzdem nutzbar bleiben).
+ */
+export async function storedSession(): Promise<Session | null> {
+  try {
+    const key = `sb-${new URL(url!).hostname.split('.')[0]}-auth-token`;
+    const raw = await AsyncStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.user && parsed?.refresh_token ? (parsed as Session) : null;
+  } catch {
+    return null;
+  }
 }

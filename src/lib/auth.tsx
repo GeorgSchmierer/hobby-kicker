@@ -12,7 +12,8 @@ import {
   type ReactNode,
 } from 'react';
 
-import { supabase } from './supabase';
+import { isNetworkError, withCache } from './offline-cache';
+import { storedSession, supabase } from './supabase';
 
 type Profile = { id: string; display_name: string | null };
 
@@ -36,11 +37,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionLoaded, setSessionLoaded] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    supabase.auth.getSession().then(async ({ data, error }) => {
+      // Ohne Netz lässt sich eine abgelaufene Anmeldung nicht auffrischen. Dann angemeldet
+      // bleiben (Offline-Modus) – sobald wieder Netz da ist, frischt Supabase sie selbst auf.
+      const session = data.session ?? (error && isNetworkError(error) ? await storedSession() : null);
+      setSession(session);
       setSessionLoaded(true);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      // „Keine Sitzung“ nur beim echten Abmelden übernehmen – sonst würde die Offline-Anmeldung
+      // von oben gleich wieder überschrieben
+      if (!next && event !== 'SIGNED_OUT') return;
+      setSession(next);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -48,15 +57,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    supabase
-      .from('profiles')
-      .select('id, display_name')
-      .eq('id', userId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return;
-        setProfile(data ?? { id: userId, display_name: null });
-      });
+    // ohne Netz: zuletzt geladenes Profil (Offline-Modus)
+    withCache(`profile/${userId}`, async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, display_name')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? { id: userId, display_name: null };
+    })
+      .then((loaded) => {
+        if (!cancelled) setProfile(loaded);
+      })
+      .catch((error) => console.warn('Profil konnte nicht geladen werden', error));
     return () => {
       cancelled = true;
     };

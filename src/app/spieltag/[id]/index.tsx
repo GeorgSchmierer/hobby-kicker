@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BigButton, SmallButton } from '@/components/controls';
@@ -16,6 +16,7 @@ import { confirmAction } from '@/lib/confirm';
 import { averageWinChances, formatPercent, funTeamNames, teamsShareText } from '@/lib/fun';
 import { useGroup, type Player } from '@/lib/group';
 import { upcomingGames, type Pairing } from '@/lib/match-plan';
+import { useOutbox } from '@/lib/outbox';
 import { formatRating } from '@/lib/ratings';
 import {
   deleteSession,
@@ -52,7 +53,8 @@ export default function SessionScreen() {
     try {
       const [loaded, latest] = await Promise.all([
         loadSession(id),
-        current ? latestResultId(current.id) : Promise.resolve(null),
+        // ohne Netz: nichts rückgängig machen
+        current ? latestResultId(current.id).catch(() => null) : Promise.resolve(null),
       ]);
       setDetail(loaded);
       setLatestId(latest);
@@ -68,6 +70,16 @@ export default function SessionScreen() {
       refreshPlayers().catch(() => {});
     }, [reload, refreshPlayers])
   );
+
+  // Sobald Wartendes beim Server angekommen ist: neu laden (jetzt mit Wertung)
+  const { syncCount } = useOutbox();
+  useEffect(() => {
+    if (syncCount === 0) return;
+    // Daten laden: Zustand ändert sich erst nach der Antwort vom Server
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    reload();
+    refreshPlayers().catch(() => {});
+  }, [syncCount, reload, refreshPlayers]);
 
   // Frisch eingetragenes Ergebnis feiern (Konfetti + Banner), danach wieder ausblenden
   useFocusEffect(
@@ -141,7 +153,9 @@ export default function SessionScreen() {
   };
 
   const canDelete =
-    detail.results.length === 0 && (isAdmin || detail.created_by === auth?.user.id);
+    !detail.pending &&
+    detail.results.length === 0 &&
+    (isAdmin || detail.created_by === auth?.user.id);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -286,7 +300,7 @@ export default function SessionScreen() {
                 lookup={lookup}
                 expanded={shownExpanded === result.id}
                 onToggle={() => setExpanded(shownExpanded === result.id ? '' : result.id)}
-                canUndo={isAdmin && result.id === latestId}
+                canUndo={isAdmin && !result.pending && result.id === latestId}
                 busy={busy}
                 onUndo={() => undo(result)}
               />
@@ -394,6 +408,11 @@ function ResultCard({
       <Pressable accessibilityRole="button" onPress={onToggle} style={styles.resultHeader}>
         <View style={styles.flex}>
           <ResultTitle result={result} teamIdx={teamIdx} />
+          {result.pending && (
+            <ThemedText type="small" themeColor="textSecondary">
+              ⏳ wartet auf Netz
+            </ThemedText>
+          )}
         </View>
         <ThemedText themeColor="textSecondary">{expanded ? '▲' : '▼'}</ThemedText>
       </Pressable>
@@ -401,7 +420,9 @@ function ResultCard({
       {expanded && (
         <View style={styles.changes}>
           <ThemedText type="small" themeColor="textSecondary">
-            So haben sich die Stärkewerte verändert:
+            {result.pending
+              ? 'Noch ohne Netz gespeichert. Die Stärkewerte werden angepasst, sobald das Ergebnis beim Server ankommt – das passiert automatisch.'
+              : 'So haben sich die Stärkewerte verändert:'}
           </ThemedText>
           {changes.map((c) => {
             const diff = c.defense_after - c.defense_before;
