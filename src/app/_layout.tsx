@@ -62,6 +62,8 @@ function RootNavigator() {
         <Stack.Screen name="spieltag/[id]/ergebnis" options={{ title: 'Ergebnis eintragen' }} />
         <Stack.Screen name="stoppuhr" options={{ title: 'Stoppuhr' }} />
         <Stack.Screen name="profil/[id]" options={{ title: 'Profil' }} />
+        <Stack.Screen name="termin/index" options={{ title: 'Fester Termin' }} />
+        <Stack.Screen name="termin/[date]" options={{ title: 'Termin' }} />
       </Stack.Protected>
       <Stack.Protected guard={named}>
         <Stack.Screen name="gruppen" options={{ title: 'Gruppen' }} />

@@ -1,16 +1,22 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { BigButton } from '@/components/controls';
+import { EventCard } from '@/components/event-card';
+import { ErrorText } from '@/components/form';
 import { InstallHint } from '@/components/install-hint';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/lib/auth';
+import { setRsvp, useNextEvent } from '@/lib/events';
 import { useGroup, type Player } from '@/lib/group';
 import { formatRating } from '@/lib/ratings';
+import { rsvpOverview } from '@/lib/schedule';
 import { todaysSession, type SessionSummary } from '@/lib/sessions';
+import { errorMessage } from '@/lib/supabase';
 import { useStore, type TeamCount } from '@/lib/store';
 import { findFairSplits, pickSplit, strength } from '@/lib/teams';
 
@@ -26,6 +32,10 @@ export default function MatchdayScreen() {
   const teamCount = store.teamCountFor(groupId);
 
   const [today, setToday] = useState<SessionSummary | null>(null);
+  const myId = useAuth().session?.user.id;
+  const myPlayer = players.find((p) => p.active && !!myId && p.user_id === myId);
+  const { data: eventData, reload: reloadEvent } = useNextEvent(groupId);
+  const [eventError, setEventError] = useState<string | null>(null);
 
   // Beim Öffnen des Reiters auffrischen (andere könnten etwas geändert haben)
   useFocusEffect(
@@ -43,6 +53,37 @@ export default function MatchdayScreen() {
   const present = activePlayers.filter((p) => presentIds.includes(p.id));
   const needed = teamCount * MIN_PER_TEAM;
   const canDraw = present.length >= needed;
+
+  // Heute ist Termin: Anwesenheit einmalig mit den Zusagen vorausfüllen (bleibt änderbar)
+  const eventToday = eventData?.info && eventData.event?.daysAway === 0 ? eventData : null;
+  const confirmedToday = eventToday
+    ? rsvpOverview(
+        activePlayers.map((p) => p.id),
+        eventToday.rsvps,
+        eventToday.info!.schedule.max_players
+      ).attending
+    : [];
+  const confirmedKey = confirmedToday.join(',');
+  const todayDate = eventToday?.event?.date ?? null;
+  const alreadyPrefilled = todayDate !== null && store.prefilledFor(groupId) === todayDate;
+  const { loaded: storeLoaded, prefillFromRsvps } = store;
+  useEffect(() => {
+    if (!storeLoaded || !playersLoaded || !todayDate || alreadyPrefilled || !confirmedKey) return;
+    prefillFromRsvps(groupId, todayDate, confirmedKey.split(','));
+  }, [storeLoaded, playersLoaded, todayDate, alreadyPrefilled, confirmedKey, groupId, prefillFromRsvps]);
+  const presentMatchesRsvps =
+    confirmedToday.length === presentIds.length && confirmedToday.every((id) => presentIds.includes(id));
+
+  const answer = async (attending: boolean | null) => {
+    if (!eventData?.event || !myPlayer) return;
+    setEventError(null);
+    try {
+      await setRsvp(groupId, eventData.event.date, myPlayer.id, attending);
+      await reloadEvent();
+    } catch (e) {
+      setEventError(errorMessage(e));
+    }
+  };
 
   const drawTeams = () => {
     const candidates = findFairSplits(present, teamCount);
@@ -80,6 +121,10 @@ export default function MatchdayScreen() {
     <ThemedView style={styles.screen}>
       <View style={styles.content}>
         <InstallHint />
+        {eventData && (
+          <EventCard data={eventData} players={players} myPlayer={myPlayer} onAnswer={answer} />
+        )}
+        <ErrorText message={eventError} />
         {today && (
           <Pressable
             accessibilityRole="button"
@@ -133,6 +178,17 @@ export default function MatchdayScreen() {
             <ThemedText type="linkPrimary">Keiner</ThemedText>
           </Pressable>
         </View>
+
+        {todayDate && confirmedToday.length > 0 && !presentMatchesRsvps && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => prefillFromRsvps(groupId, todayDate, confirmedToday)}
+            hitSlop={8}>
+            <ThemedText type="linkPrimary">
+              📋 {confirmedToday.length} Zusagen für heute als Anwesenheit übernehmen
+            </ThemedText>
+          </Pressable>
+        )}
 
         <FlatList
           data={activePlayers}

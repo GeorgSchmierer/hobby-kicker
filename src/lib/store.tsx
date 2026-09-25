@@ -1,5 +1,6 @@
 /**
- * Was nur auf diesem Gerät gespeichert wird: Anwesenheit und Anzahl Teams (je Gruppe)
+ * Was nur auf diesem Gerät gespeichert wird: Anwesenheit und Anzahl Teams (je Gruppe),
+ * außerdem für welchen Termin die Zusagen schon in die Anwesenheit übernommen wurden
  * sowie das gerade angezeigte Würfel-Ergebnis. Spieler und Gruppen liegen online (group.tsx).
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +21,8 @@ export type TeamCount = 2 | 3 | 4;
 type SavedState = {
   presentIds: Record<string, string[]>;
   teamCount: Record<string, TeamCount>;
+  /** Gruppe → Datum des Termins, dessen Zusagen schon übernommen wurden */
+  prefilled: Record<string, string>;
 };
 
 /** Das aktuell angezeigte Würfel-Ergebnis (wird nicht gespeichert). */
@@ -41,7 +44,7 @@ export type Celebration = {
 };
 
 const STORAGE_KEY = 'hobby-kicker/v2/matchday';
-const EMPTY: SavedState = { presentIds: {}, teamCount: {} };
+const EMPTY: SavedState = { presentIds: {}, teamCount: {}, prefilled: {} };
 
 type Store = {
   loaded: boolean;
@@ -54,6 +57,9 @@ type Store = {
   setPresent: (groupId: string, playerId: string, present: boolean) => void;
   setPresentIds: (groupId: string, ids: string[]) => void;
   setTeamCount: (groupId: string, count: TeamCount) => void;
+  prefilledFor: (groupId: string) => string | null;
+  /** Anwesenheit mit den Zusagen eines Termins füllen */
+  prefillFromRsvps: (groupId: string, date: string, ids: string[]) => void;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -99,6 +105,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, teamCount: { ...s.teamCount, [groupId]: count } }));
   }, []);
 
+  const prefilledFor = useCallback((groupId: string) => state.prefilled[groupId] ?? null, [state]);
+
+  const prefillFromRsvps = useCallback((groupId: string, date: string, ids: string[]) => {
+    setState((s) => ({
+      ...s,
+      presentIds: { ...s.presentIds, [groupId]: [...new Set(ids)] },
+      prefilled: { ...s.prefilled, [groupId]: date },
+    }));
+  }, []);
+
   const value = useMemo<Store>(
     () => ({
       loaded,
@@ -111,8 +127,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPresent,
       setPresentIds,
       setTeamCount,
+      prefilledFor,
+      prefillFromRsvps,
     }),
-    [loaded, draw, celebration, presentIdsFor, teamCountFor, setPresent, setPresentIds, setTeamCount]
+    [
+      loaded,
+      draw,
+      celebration,
+      presentIdsFor,
+      teamCountFor,
+      setPresent,
+      setPresentIds,
+      setTeamCount,
+      prefilledFor,
+      prefillFromRsvps,
+    ]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

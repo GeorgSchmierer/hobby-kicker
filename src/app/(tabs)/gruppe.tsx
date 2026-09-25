@@ -1,8 +1,8 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { BigButton } from '@/components/controls';
+import { BigButton, Chip, SmallButton } from '@/components/controls';
 import { ErrorText, Field } from '@/components/form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,8 +10,10 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { confirmAction } from '@/lib/confirm';
+import { useNextEvent } from '@/lib/events';
 import { useGroup, type Member } from '@/lib/group';
 import { APP_URL } from '@/lib/params';
+import { formatTime, WEEKDAYS } from '@/lib/schedule';
 import { shareText } from '@/lib/share';
 import { errorMessage } from '@/lib/supabase';
 import { applyUpdate, fetchLatestVersion, isNewer, shortVersion } from '@/lib/updates';
@@ -36,6 +38,7 @@ export default function GroupScreen() {
   const myId = session?.user.id;
 
   const [members, setMembers] = useState<Member[]>([]);
+  const schedule = useNextEvent(group.id).data?.info?.schedule;
   const [groupName, setGroupName] = useState(group.name);
   const [myName, setMyName] = useState(profile?.display_name ?? '');
   const [busy, setBusy] = useState(false);
@@ -172,6 +175,24 @@ export default function GroupScreen() {
               style={[styles.outlined, { borderColor: theme.border }]}
               disabled={busy}
               onPress={newCode}
+            />
+          )}
+        </ThemedView>
+
+        {/* Fester Termin */}
+        <ThemedView type="backgroundElement" style={styles.card}>
+          <ThemedText style={styles.cardTitle}>Fester Termin</ThemedText>
+          <ThemedText themeColor={schedule ? 'text' : 'textSecondary'}>
+            {schedule
+              ? `Jeden ${WEEKDAYS[schedule.weekday - 1]}, ${formatTime(schedule.start_time)} Uhr${schedule.location ? ` · ${schedule.location}` : ''}${schedule.max_players ? ` · max. ${schedule.max_players} Spieler` : ''}`
+              : 'Noch kein fester Termin.'}
+          </ThemedText>
+          {isAdmin && (
+            <BigButton
+              title={schedule ? 'Termin ändern / absagen' : 'Termin festlegen'}
+              variant="secondary"
+              style={[styles.outlined, { borderColor: theme.border }]}
+              onPress={() => router.push('/termin')}
             />
           )}
         </ThemedView>
@@ -349,71 +370,6 @@ export default function GroupScreen() {
   );
 }
 
-function SmallButton({
-  title,
-  onPress,
-  disabled,
-  danger,
-}: {
-  title: string;
-  onPress: () => void;
-  disabled?: boolean;
-  danger?: boolean;
-}) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.smallButton,
-        {
-          borderColor: danger ? theme.danger : theme.border,
-          opacity: disabled ? 0.4 : pressed ? 0.6 : 1,
-        },
-      ]}>
-      <ThemedText type="small" style={{ color: danger ? theme.danger : theme.text, fontWeight: 700 }}>
-        {title}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
-function Chip({
-  title,
-  selected,
-  disabled,
-  onPress,
-}: {
-  title: string;
-  selected: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected, disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.chip,
-        {
-          borderColor: selected ? theme.primary : theme.border,
-          backgroundColor: selected ? theme.primary : 'transparent',
-          opacity: disabled ? 0.4 : pressed ? 0.6 : 1,
-        },
-      ]}>
-      <ThemedText type="small" style={{ color: selected ? theme.onPrimary : theme.text, fontWeight: 700 }}>
-        {selected ? '✓ ' : ''}
-        {title}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: {
@@ -437,21 +393,7 @@ const styles = StyleSheet.create({
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   editBox: { gap: Spacing.two, paddingLeft: Spacing.two },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  chip: {
-    minHeight: 40,
-    paddingHorizontal: Spacing.three,
-    borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: 'center',
-  },
   memberName: { fontSize: 17, fontWeight: 700 },
   memberActions: { flexDirection: 'row', gap: Spacing.two },
   versionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  smallButton: {
-    minHeight: 40,
-    paddingHorizontal: Spacing.two,
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center',
-  },
 });

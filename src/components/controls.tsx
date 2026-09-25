@@ -87,7 +87,88 @@ export function RatingStepper({ label, value, onChange }: StepperProps) {
   );
 }
 
+/** Kleiner Rahmen-Knopf für Nebenaktionen */
+export function SmallButton({
+  title,
+  onPress,
+  disabled,
+  danger,
+}: {
+  title: string;
+  onPress: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.smallButton,
+        {
+          borderColor: danger ? theme.danger : theme.border,
+          opacity: disabled ? 0.4 : pressed ? 0.6 : 1,
+        },
+      ]}>
+      <ThemedText type="small" style={{ color: danger ? theme.danger : theme.text, fontWeight: 700 }}>
+        {title}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
+/** Auswahl-Knopf (rund), ausgewählt = grün mit Haken */
+export function Chip({
+  title,
+  selected,
+  disabled,
+  onPress,
+}: {
+  title: string;
+  selected: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          borderColor: selected ? theme.primary : theme.border,
+          backgroundColor: selected ? theme.primary : 'transparent',
+          opacity: disabled ? 0.4 : pressed ? 0.6 : 1,
+        },
+      ]}>
+      <ThemedText type="small" style={{ color: selected ? theme.onPrimary : theme.text, fontWeight: 700 }}>
+        {selected ? '✓ ' : ''}
+        {title}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  smallButton: {
+    minHeight: 40,
+    paddingHorizontal: Spacing.two,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+  },
+  chip: {
+    minHeight: 40,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+  },
   button: {
     minHeight: 56,
     borderRadius: 14,
