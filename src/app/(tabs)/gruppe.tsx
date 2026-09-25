@@ -371,6 +371,14 @@ export default function GroupScreen() {
           </ThemedText>
           <SmallButton title="🔄 Nach Updates suchen" onPress={checkForUpdate} />
         </View>
+        {isAdmin && (
+          <View style={styles.versionRow}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
+              Sicherung aller Gruppendaten
+            </ThemedText>
+            <SmallButton title="📦 Daten exportieren" onPress={() => router.push('/export')} />
+          </View>
+        )}
       </ScrollView>
     </ThemedView>
   );

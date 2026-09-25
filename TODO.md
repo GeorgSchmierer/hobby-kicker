@@ -44,4 +44,4 @@
 
 - [x] **D1 Kassenbuch:** Kosten je Spieltag auf Anwesende aufteilen (Cent-genau), offene Beträge, abhaken nur Admins.
 - [x] **D2 Admin-Rechte weitergeben:** mehrere Admins gibt es schon; fehlt: letzter Admin darf Konto nicht löschen ohne Nachfolger, Rollenwechsel ins `audit_log`.
-- [ ] **D3 Daten-Export:** PDF und XLSX (vorher Format klären), nur eigene Gruppe, keine E-Mails.
+- [x] **D3 Daten-Export:** PDF und XLSX (vorher Format klären), nur eigene Gruppe, keine E-Mails.

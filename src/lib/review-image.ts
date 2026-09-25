@@ -4,6 +4,8 @@
  */
 import { Platform } from 'react-native';
 
+import { saveFile } from './save-file';
+
 const WIDTH = 1080;
 const HEIGHT = 1350;
 
@@ -67,21 +69,8 @@ export async function shareReviewImage(
 
     const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
     if (!blob) return 'failed';
-    const file = new File([blob], fileName, { type: 'image/png' });
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title });
-      return 'shared';
-    }
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    return 'downloaded';
-  } catch (e) {
-    // Teilen abgebrochen ist kein Fehler
-    if ((e as Error)?.name === 'AbortError') return 'shared';
+    return await saveFile(blob, fileName);
+  } catch {
     return 'failed';
   }
 }
