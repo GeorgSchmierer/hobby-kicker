@@ -2,6 +2,7 @@ import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { BigButton, SmallButton } from '@/components/controls';
 import { ErrorText } from '@/components/form';
 import { Confetti } from '@/components/confetti';
@@ -377,9 +378,14 @@ export default function SessionScreen() {
                 <ThemedText style={[styles.funName, { color: teamColor(team.idx).color }]}>
                   „{funNames[i]}“
                 </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  {members.map((p) => p.name).join(', ')}
-                </ThemedText>
+                <View style={styles.memberList}>
+                  {members.map((p) => (
+                    <View key={p.id} style={styles.member}>
+                      <Avatar name={p.name} path={p.avatar_path} size={24} />
+                      <ThemedText themeColor="textSecondary">{p.name}</ThemedText>
+                    </View>
+                  ))}
+                </View>
               </ThemedView>
             );
           })}
@@ -578,6 +584,8 @@ const styles = StyleSheet.create({
   changeValues: { alignItems: 'flex-end' },
   changeDiff: { width: 56, textAlign: 'right', fontSize: 16, fontWeight: 700 },
   undo: { marginTop: Spacing.two, borderWidth: 1 },
+  memberList: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.one },
+  member: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   guestCard: { borderRadius: 14, padding: Spacing.three, gap: Spacing.two },
   guestRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   guestName: { fontSize: 17, fontWeight: 600 },

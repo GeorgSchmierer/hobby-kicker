@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
+import { Avatar } from '@/components/avatar';
 import { BigButton } from '@/components/controls';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -22,11 +23,18 @@ import { useStore } from '@/lib/store';
 import { errorMessage } from '@/lib/supabase';
 import { pickSplit, splitKey, teamStats } from '@/lib/teams';
 
+/** Gesamtdauer der Einflug-Verzögerungen beim Würfeln (danach federt der Letzte noch kurz nach) */
+const FLY_IN_TOTAL_MS = 700;
+
 export default function TeamsScreen() {
   const theme = useTheme();
   const { draw, setDraw } = useStore();
   const { players, current } = useGroup();
   const userId = useAuth().session?.user.id ?? null;
+  // Einflug-Animation (TODO B2): entfällt bei „Bewegung reduzieren“, insgesamt höchstens ~1 Sekunde
+  const reduceMotion = useReducedMotion();
+  const playerCount = draw?.teams.flat().length ?? 0;
+  const flyStep = Math.min(45, Math.floor(FLY_IN_TOTAL_MS / Math.max(1, playerCount)));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -168,7 +176,11 @@ export default function TeamsScreen() {
                 return (
                   <Animated.View
                     key={`${draw.key}-${player.id}`}
-                    entering={FadeInDown.delay((playerIndex * teams.length + teamIndex) * 45).springify()}>
+                    entering={
+                      reduceMotion
+                        ? undefined
+                        : FadeInDown.delay((playerIndex * teams.length + teamIndex) * flyStep).springify()
+                    }>
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => tapPlayer(player.id, teamIndex)}
@@ -179,6 +191,7 @@ export default function TeamsScreen() {
                         borderColor: selected ? theme.primary : 'transparent',
                       },
                     ]}>
+                    <Avatar name={player.name} path={player.avatar_path} size={28} />
                     <ThemedText style={[styles.playerName, styles.flex]}>{player.name}</ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
                       A {formatRating(player.defense)} · S {formatRating(player.attack)}
@@ -264,6 +277,7 @@ const styles = StyleSheet.create({
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.two,
     minHeight: 48,
     paddingHorizontal: Spacing.two,
     borderRadius: 10,

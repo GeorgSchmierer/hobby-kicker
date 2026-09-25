@@ -2,6 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { BigButton } from '@/components/controls';
 import { EventCard } from '@/components/event-card';
 import { ErrorText } from '@/components/form';
@@ -268,6 +269,7 @@ function AttendanceRow({
         ]}>
         {present && <ThemedText style={{ color: theme.onPrimary, fontWeight: 700 }}>✓</ThemedText>}
       </View>
+      <Avatar name={player.name} path={player.avatar_path} size={32} />
       <ThemedText style={[styles.name, styles.flex]}>
         {player.name}
         {player.is_guest && (

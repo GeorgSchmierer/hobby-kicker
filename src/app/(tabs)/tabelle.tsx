@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { ErrorText } from '@/components/form';
 import { FormChips } from '@/components/stats';
 import { ThemedText } from '@/components/themed-text';
@@ -58,6 +59,7 @@ export default function TableScreen() {
   const years = stats ? seasons(stats.games) : [];
   const eternal = stats ? eternalTable(stats.games, year || undefined) : [];
   const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '?';
+
   const openProfile = (id: string) => router.push({ pathname: '/profil/[id]', params: { id } });
 
   return (
@@ -152,6 +154,7 @@ export default function TableScreen() {
                   { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
                 ]}>
                 <ThemedText style={styles.rank}>{MEDALS[i] ?? `${i + 1}.`}</ThemedText>
+                <Avatar name={row.player.name} path={row.player.avatar_path} size={40} />
                 <View style={styles.flex}>
                   <ThemedText style={styles.name}>{row.player.name}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">

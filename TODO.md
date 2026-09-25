@@ -28,8 +28,8 @@
 
 ## Paket B – Optik & Bedienung
 
-- [ ] **B1 Avatare:** Initialen-Kreis, optional Foto (Supabase Storage, nur Gruppe sieht es, wird mitgelöscht).
-- [ ] **B2 Würfel-Animation:** gibt es schon (Einflug); fehlt noch: entfällt bei „Bewegung reduzieren“, max. ~1 Sekunde.
+- [x] **B1 Avatare:** Initialen-Kreis, optional Foto (Supabase Storage, nur Gruppe sieht es, wird mitgelöscht).
+- [x] **B2 Würfel-Animation:** gibt es schon (Einflug); fehlt noch: entfällt bei „Bewegung reduzieren“, max. ~1 Sekunde.
 
 ## Paket C – Statistik & Spaß
 

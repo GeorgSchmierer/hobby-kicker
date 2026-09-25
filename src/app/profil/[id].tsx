@@ -1,13 +1,17 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
-import { BigButton } from '@/components/controls';
+import { Avatar } from '@/components/avatar';
+import { BigButton, SmallButton } from '@/components/controls';
 import { ErrorText } from '@/components/form';
 import { FormChips, StrengthChart } from '@/components/stats';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/lib/auth';
+import { pickAndUploadAvatar, removeAvatar } from '@/lib/avatars';
 import { useGroup } from '@/lib/group';
 import { todayIso, useGroupStats } from '@/lib/group-stats';
 import { formatRating } from '@/lib/ratings';
@@ -27,9 +31,12 @@ import { strength } from '@/lib/teams';
 export default function ProfileScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { current, players, isAdmin } = useGroup();
+  const { current, players, isAdmin, refreshPlayers } = useGroup();
   const { stats, error } = useGroupStats(current?.id);
   const player = players.find((p) => p.id === id);
+  const myId = useAuth().session?.user.id;
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   if (!player) {
     return (
@@ -40,6 +47,21 @@ export default function ProfileScreen() {
   }
 
   const name = (pid: string) => players.find((p) => p.id === pid)?.name ?? '?';
+  // Foto ändern dürfen Admins und der Spieler selbst (verknüpftes Konto)
+  const canEditPhoto = isAdmin || (!!myId && player.user_id === myId);
+  const changePhoto = async (remove: boolean) => {
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const target = { ...player, group_id: current!.id };
+      const changed = remove ? (await removeAvatar(target), true) : await pickAndUploadAvatar(target);
+      if (changed) await refreshPlayers();
+    } catch (e) {
+      setPhotoError(errorMessage(e));
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
   const pct = (v: number) => `${Math.round(v * 100)} %`;
 
   return (
@@ -49,6 +71,7 @@ export default function ProfileScreen() {
         {/* Kopf: Stärke */}
         <ThemedView type="backgroundElement" style={styles.card}>
           <View style={styles.row}>
+            <Avatar name={player.name} path={player.avatar_path} size={64} />
             <View style={styles.flex}>
               <ThemedText style={styles.bigName}>{player.name}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
@@ -65,6 +88,19 @@ export default function ProfileScreen() {
               </ThemedText>
             </View>
           </View>
+          {canEditPhoto && (
+            <View style={styles.photoRow}>
+              <SmallButton
+                title={photoBusy ? 'Wird hochgeladen …' : player.avatar_path ? '📷 Foto ändern' : '📷 Foto hinzufügen'}
+                disabled={photoBusy}
+                onPress={() => changePhoto(false)}
+              />
+              {player.avatar_path && (
+                <SmallButton title="Foto entfernen" disabled={photoBusy} onPress={() => changePhoto(true)} />
+              )}
+            </View>
+          )}
+          <ErrorText message={photoError} />
           {isAdmin && (
             <BigButton
               title="✏️ Bearbeiten"
@@ -283,6 +319,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.six,
   },
   flex: { flex: 1 },
+  photoRow: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   card: { borderRadius: 14, padding: Spacing.three, gap: Spacing.two },
   bigName: { fontSize: 26, lineHeight: 32, fontWeight: 800 },

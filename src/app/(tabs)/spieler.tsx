@@ -2,6 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { BigButton } from '@/components/controls';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -67,6 +68,7 @@ function PlayerRow({ player, isMe }: { player: Player; isMe: boolean }) {
         styles.row,
         { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : player.active ? 1 : 0.5 },
       ]}>
+      <Avatar name={player.name} path={player.avatar_path} size={40} />
       <View style={styles.rowText}>
         <ThemedText style={styles.name}>
           {player.name}
@@ -91,6 +93,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.three,
     minHeight: 64,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,

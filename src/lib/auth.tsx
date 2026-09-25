@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { isNetworkError, withCache } from './offline-cache';
+import { deleteAvatarFiles } from './avatars';
 import { storedSession, supabase } from './supabase';
 
 type Profile = { id: string; display_name: string | null };
@@ -109,11 +110,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteAccount = useCallback(async () => {
+    // Fotos der eigenen Spieler mitlöschen (Speicher leert sich nicht selbst)
+    const { data: own } = await supabase.from('players').select('id, avatar_path').eq('user_id', userId ?? '');
+    for (const p of own ?? []) {
+      if (!p.avatar_path) continue;
+      await supabase.rpc('set_avatar', { p_player: p.id, p_path: null });
+      await deleteAvatarFiles([p.avatar_path]).catch(() => {});
+    }
     const { error } = await supabase.rpc('delete_my_account');
     if (error) throw error;
     // Das Konto gibt es nicht mehr – nur noch lokal abmelden
     await supabase.auth.signOut({ scope: 'local' });
-  }, []);
+  }, [userId]);
 
   const value = useMemo<Auth>(
     () => ({

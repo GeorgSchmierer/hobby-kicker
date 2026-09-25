@@ -15,6 +15,7 @@ import {
 } from 'react';
 
 import { useAuth } from './auth';
+import { deleteAvatarFiles } from './avatars';
 import { withCache } from './offline-cache';
 import { newId, pendingGuests, submit, useOutbox } from './outbox';
 import { clampRating } from './ratings';
@@ -40,6 +41,8 @@ export type Player = {
   user_id: string | null;
   /** Gastspieler: wird eingeteilt und gewertet, aber nicht in Tabelle/Statistik gezeigt */
   is_guest: boolean;
+  /** Foto im Speicher „avatars“ (null = Initialen) */
+  avatar_path: string | null;
 };
 
 export type Member = {
@@ -94,6 +97,7 @@ function toPlayer(row: Record<string, unknown>): Player {
     games_played: Number(row.games_played),
     user_id: row.user_id ? String(row.user_id) : null,
     is_guest: Boolean(row.is_guest),
+    avatar_path: row.avatar_path ? String(row.avatar_path) : null,
   };
 }
 
@@ -158,7 +162,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     const list = await withCache(`players/${currentId}`, async () => {
       const { data, error } = await supabase
         .from('players')
-        .select('id, name, defense, attack, active, games_played, user_id, is_guest')
+        .select('id, name, defense, attack, active, games_played, user_id, is_guest, avatar_path')
         .eq('group_id', currentId);
       if (error) throw error;
       return (data ?? []).map(toPlayer);
@@ -197,6 +201,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
               games_played: 0,
               user_id: null,
               is_guest: true,
+              avatar_path: null,
             }
       );
     }
@@ -266,6 +271,15 @@ export function GroupProvider({ children }: { children: ReactNode }) {
 
   const leaveGroup = useCallback(async () => {
     if (!currentId) return;
+    // Letztes Mitglied: Gruppe wird gelöscht – vorher die Fotos (Speicher leert sich nicht selbst)
+    const { count } = await supabase
+      .from('group_members')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('group_id', currentId);
+    if (count === 1) {
+      const { data } = await supabase.from('players').select('avatar_path').eq('group_id', currentId);
+      await deleteAvatarFiles((data ?? []).map((p) => p.avatar_path)).catch(() => {});
+    }
     const { error } = await supabase.rpc('leave_group', { gid: currentId });
     if (error) throw error;
     if (userId) setSelection({ userId, id: null });
@@ -292,11 +306,13 @@ export function GroupProvider({ children }: { children: ReactNode }) {
 
   const deletePlayer = useCallback(
     async (id: string) => {
+      const avatar = players.find((p) => p.id === id)?.avatar_path;
       const { error } = await supabase.from('players').delete().eq('id', id);
       if (error) throw error;
+      await deleteAvatarFiles([avatar]).catch(() => {});
       await refreshPlayers();
     },
-    [refreshPlayers]
+    [players, refreshPlayers]
   );
 
   const loadMembers = useCallback(async (): Promise<Member[]> => {
