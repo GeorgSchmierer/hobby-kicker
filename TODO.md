@@ -38,7 +38,7 @@
 - [x] **C3 Abzeichen:** Treue Seele, Siegesserie, Comeback-König, Jubiläum; serverseitig, bei „Rückgängig“ wieder entfernen.
 - [ ] **C4 Jahresrückblick:** Zusammenfassung des Jahres, als Bild teilbar.
 - [x] **C5 „Warum hat sich mein Wert geändert?“:** kurzer Satz je Änderung (Siegchance, Ergebnis, Torstand).
-- [ ] **C6 Anwesenheitsquote:** „18 von 22 · 82 %“, nach Monat/Jahr; abgesagte Termine zählen nicht.
+- [x] **C6 Anwesenheitsquote:** „18 von 22 · 82 %“, nach Monat/Jahr; abgesagte Termine zählen nicht.
 
 ## Paket D – Kasse & Verwaltung
 

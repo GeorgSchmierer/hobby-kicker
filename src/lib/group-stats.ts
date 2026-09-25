@@ -7,7 +7,14 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
 import { explainResult } from './explain';
-import { buildGames, mvpTitles, withoutGuests, type Game, type ResultInput } from './stats';
+import {
+  buildGames,
+  mvpTitles,
+  withoutGuests,
+  type Game,
+  type PlayedSession,
+  type ResultInput,
+} from './stats';
 import { supabase } from './supabase';
 
 export type StrengthChange = {
@@ -26,6 +33,8 @@ export type GroupStats = {
   games: Game[];
   changes: StrengthChange[];
   explained: ExplainedChange[];
+  /** gespielte Spieltage mit Teilnehmern (ohne Gäste) – für die Anwesenheitsquote */
+  sessions: PlayedSession[];
   /** Anzahl „MVP des Tages“-Titel je Spieler */
   mvp: Map<string, number>;
 };
@@ -35,7 +44,7 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
     supabase
       .from('results')
       .select(
-        `id, seq, kind, sessions (played_on),
+        `id, seq, kind, session_id, sessions (played_on),
          matches (id, team_a, team_b, goals_a, goals_b, score_a),
          rating_changes (id, match_id, team_id, player_id, defense_before, attack_before, defense_after, attack_after, games_before)`
       )
@@ -55,6 +64,7 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
   const results: ResultInput[] = [];
   const changes: StrengthChange[] = [];
   const explained: ExplainedChange[] = [];
+  const played = new Map<string, PlayedSession>();
   for (const r of (resultsRes.data ?? []) as any[]) {
     const playedOn: string = r.sessions?.played_on ?? '';
     const seq = Number(r.seq);
@@ -88,6 +98,14 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
       },
       scaleD
     );
+    const session =
+      played.get(r.session_id) ?? { sessionId: r.session_id, playedOn, participants: [] as string[] };
+    for (const c of r.rating_changes ?? []) {
+      if (!guests.has(c.player_id) && !session.participants.includes(c.player_id)) {
+        session.participants.push(c.player_id);
+      }
+    }
+    played.set(r.session_id, session);
     for (const [playerId, text] of texts) {
       if (!guests.has(playerId)) explained.push({ seq, playedOn, playerId, text });
     }
@@ -106,7 +124,13 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
       .filter((v: any) => !guests.has(v.player_id))
       .map((v: any) => ({ sessionId: v.session_id, playerId: v.player_id }))
   );
-  return { games: withoutGuests(buildGames(results), guests), changes, explained, mvp };
+  return {
+    games: withoutGuests(buildGames(results), guests),
+    changes,
+    explained,
+    sessions: [...played.values()],
+    mvp,
+  };
 }
 
 /** Statistik der Gruppe, wird beim Öffnen des Bildschirms frisch geladen */

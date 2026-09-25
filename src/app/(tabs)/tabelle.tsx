@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { ErrorText } from '@/components/form';
+import { AttendanceTable } from '@/components/attendance-table';
 import { SeasonTable } from '@/components/season-table';
 import { FormChips } from '@/components/stats';
 import { ThemedText } from '@/components/themed-text';
@@ -17,7 +18,7 @@ import { awards, playedYears, summarize } from '@/lib/stats';
 import { errorMessage } from '@/lib/supabase';
 import { strength } from '@/lib/teams';
 
-type SortBy = 'strength' | 'winRate' | 'season';
+type SortBy = 'strength' | 'winRate' | 'season' | 'attendance';
 /** Für die Siegquoten-Tabelle braucht es ein paar Spiele, sonst führt jeder mit 1 Sieg aus 1 Spiel */
 const MIN_GAMES_FOR_RATE = 3;
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -100,6 +101,7 @@ export default function TableScreen() {
               ['strength', 'Stärke'],
               ['winRate', 'Siegquote'],
               ['season', 'Saison'],
+              ['attendance', 'Dabei'],
             ] as const
           ).map(([value, label]) => {
             const selected = sortBy === value;
@@ -122,7 +124,15 @@ export default function TableScreen() {
           })}
         </View>
 
-        {sortBy === 'season' ? (
+        {sortBy === 'attendance' ? (
+          stats && (
+            <AttendanceTable
+              sessions={stats.sessions}
+              players={players.filter((p) => !p.is_guest)}
+              years={years}
+            />
+          )
+        ) : sortBy === 'season' ? (
           <SeasonTable groupId={current!.id} players={players} isAdmin={isAdmin} playedYears={years} />
         ) : (
           <>
@@ -205,7 +215,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  segmentText: { fontSize: 16, fontWeight: 700 },
+  segmentText: { fontSize: 15, fontWeight: 700 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

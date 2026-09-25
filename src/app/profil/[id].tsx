@@ -16,6 +16,7 @@ import { useGroup } from '@/lib/group';
 import { todayIso, useGroupStats } from '@/lib/group-stats';
 import { formatRating } from '@/lib/ratings';
 import {
+  attendance,
   awards,
   dreamPartner,
   favouriteOpponent,
@@ -178,6 +179,10 @@ function ProfileStats({
         .catch(() => setBadges([]));
     }, [playerId])
   );
+  // Anwesenheit (TODO C6): dieses Jahr und insgesamt
+  const thisYear = todayIso().slice(0, 4);
+  const presentYear = attendance(stats.sessions, [playerId], thisYear)[0];
+  const presentAll = attendance(stats.sessions, [playerId])[0];
   // Letzte Wertungsänderungen mit Begründung (TODO C5), neueste zuerst
   const recentReasons = stats.explained
     .filter((e) => e.playerId === playerId)
@@ -240,6 +245,15 @@ function ProfileStats({
           <FormChips form={s.form} />
         </View>
         {streakText && <ThemedText>{streakText}</ThemedText>}
+        {presentAll.total > 0 && (
+          <ThemedText>
+            📅 Dabei {thisYear}: {presentYear.present} von {presentYear.total} Spieltagen
+            {presentYear.total ? ` · ${pct(presentYear.rate)}` : ''}
+            {presentAll.total !== presentYear.total
+              ? ` (insgesamt ${presentAll.present} von ${presentAll.total})`
+              : ''}
+          </ThemedText>
+        )}
         {mvpCount > 0 && (
           <ThemedText>
             ⭐ {mvpCount}× MVP des Tages

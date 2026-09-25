@@ -304,3 +304,32 @@ export function withoutGuests(games: Game[], guestIds: Set<string>): Game[] {
       opponents: g.opponents.filter((id) => !guestIds.has(id)),
     }));
 }
+
+/** Ein gespielter Spieltag und wer mitgespielt hat (für die Anwesenheitsquote) */
+export type PlayedSession = { sessionId: string; playedOn: string; participants: string[] };
+
+export type Attendance = { playerId: string; present: number; total: number; rate: number };
+
+/**
+ * Anwesenheitsquote (TODO C6): bei wie vielen Spieltagen war jemand dabei (mindestens eine Partie).
+ * Gezählt werden nur Spieltage, an denen gespielt wurde – ein abgesagter Termin („fällt aus“)
+ * ist kein Spieltag und zählt nicht. `period`: '' = alles, '2026' = Jahr, '2026-09' = Monat.
+ * Nur Spieler aus `playerIds` (also ohne Gäste); sortiert nach Quote, dann Anzahl.
+ */
+export function attendance(sessions: PlayedSession[], playerIds: string[], period = ''): Attendance[] {
+  const inPeriod = sessions.filter((s) => s.playedOn.startsWith(period));
+  const total = inPeriod.length;
+  return playerIds
+    .map((playerId) => {
+      const present = inPeriod.filter((s) => s.participants.includes(playerId)).length;
+      return { playerId, present, total, rate: total ? present / total : 0 };
+    })
+    .sort((a, b) => b.rate - a.rate || b.present - a.present);
+}
+
+/** Monate („2026-09“) eines Jahres, in denen gespielt wurde – neuester zuerst */
+export function playedMonths(sessions: PlayedSession[], year: string): string[] {
+  return [...new Set(sessions.map((s) => s.playedOn.slice(0, 7)).filter((m) => m.startsWith(year)))]
+    .sort()
+    .reverse();
+}

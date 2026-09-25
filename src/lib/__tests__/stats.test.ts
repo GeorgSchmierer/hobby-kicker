@@ -5,6 +5,8 @@ import {
   favouriteOpponent,
   mvpTitles,
   nemesis,
+  attendance,
+  playedMonths,
   playedYears,
   sessionMvps,
   strengthHistory,
@@ -219,5 +221,46 @@ describe('Gäste in der Statistik', () => {
     expect(summarize(filtered, 'b').losses).toBe(1);
     expect(filtered.find((g) => g.playerId === 'a')!.teammates).toEqual([]);
     expect(filtered.find((g) => g.playerId === 'b')!.opponents).toEqual(['a']);
+  });
+});
+
+describe('Anwesenheitsquote', () => {
+  const sessions = [
+    { sessionId: 's1', playedOn: '2026-08-04', participants: ['a', 'b'] },
+    { sessionId: 's2', playedOn: '2026-09-01', participants: ['a'] },
+    // 08.09. fiel aus („fällt aus“) → kein Spieltag, zählt für niemanden
+    { sessionId: 's3', playedOn: '2026-09-15', participants: ['a', 'b', 'c'] },
+    { sessionId: 's4', playedOn: '2025-12-01', participants: ['b'] },
+  ];
+
+  it('zählt je Spieler die Spieltage, an denen er dabei war', () => {
+    const all = attendance(sessions, ['a', 'b', 'c']);
+    expect(all.map((r) => [r.playerId, r.present, r.total])).toEqual([
+      ['a', 3, 4],
+      ['b', 3, 4],
+      ['c', 1, 4],
+    ]);
+    expect(all[0].rate).toBeCloseTo(0.75);
+  });
+
+  it('lässt sich auf Jahr und Monat eingrenzen', () => {
+    const sept = attendance(sessions, ['a', 'b'], '2026-09');
+    expect(sept.map((r) => [r.playerId, r.present, r.total])).toEqual([
+      ['a', 2, 2],
+      ['b', 1, 2],
+    ]);
+    expect(attendance(sessions, ['b'], '2025')[0]).toMatchObject({ present: 1, total: 1, rate: 1 });
+  });
+
+  it('abgesagte Termine zählen nicht, ohne Spieltage ist die Quote 0', () => {
+    expect(attendance(sessions, ['a'], '2026-10')[0]).toMatchObject({ present: 0, total: 0, rate: 0 });
+  });
+
+  it('Gäste stehen nicht in der Liste (nur übergebene Spieler)', () => {
+    expect(attendance(sessions, ['a']).map((r) => r.playerId)).toEqual(['a']);
+  });
+
+  it('Monate eines Jahres', () => {
+    expect(playedMonths(sessions, '2026')).toEqual(['2026-09', '2026-08']);
   });
 });
