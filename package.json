@@ -52,7 +52,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "test:db": "node --test supabase/tests/rls.test.mjs supabase/tests/ratings.test.mjs supabase/tests/mvp.test.mjs supabase/tests/members.test.mjs supabase/tests/schedule.test.mjs supabase/tests/late.test.mjs supabase/tests/offline.test.mjs supabase/tests/guests.test.mjs supabase/tests/avatars.test.mjs"
+    "test:db": "node --test supabase/tests/rls.test.mjs supabase/tests/ratings.test.mjs supabase/tests/mvp.test.mjs supabase/tests/members.test.mjs supabase/tests/schedule.test.mjs supabase/tests/late.test.mjs supabase/tests/offline.test.mjs supabase/tests/guests.test.mjs supabase/tests/avatars.test.mjs supabase/tests/seasons.test.mjs"
   },
   "private": true,
   "jest": {
@@ -60,6 +60,9 @@
     "moduleNameMapper": {
       "^@/assets/(.*)$": "<rootDir>/assets/$1",
       "^@/(.*)$": "<rootDir>/src/$1"
-    }
+    },
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ]
   }
 }

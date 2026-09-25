@@ -1,5 +1,5 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
@@ -18,13 +18,13 @@ import { formatRating } from '@/lib/ratings';
 import {
   awards,
   dreamPartner,
-  eternalTable,
   favouriteOpponent,
   nemesis,
   strengthHistory,
   summarize,
   type PairStat,
 } from '@/lib/stats';
+import { loadStandings, type StandingRow } from '@/lib/standings';
 import { errorMessage } from '@/lib/supabase';
 import { strength } from '@/lib/teams';
 
@@ -116,6 +116,7 @@ export default function ProfileScreen() {
           <ActivityIndicator color={theme.primary} />
         ) : (
           <ProfileStats
+            groupId={current!.id}
             playerId={player.id}
             stats={stats}
             name={name}
@@ -129,12 +130,14 @@ export default function ProfileScreen() {
 }
 
 function ProfileStats({
+  groupId,
   playerId,
   stats,
   name,
   pct,
   playerIds,
 }: {
+  groupId: string;
   playerId: string;
   stats: NonNullable<ReturnType<typeof useGroupStats>['stats']>;
   name: (id: string) => string;
@@ -154,7 +157,15 @@ function ProfileStats({
     stats.mvp
   ).filter((a) => a.playerId === playerId);
   const mvpCount = stats.mvp.get(playerId) ?? 0;
-  const eternal = eternalTable(stats.games);
+  // Platz in der Gesamttabelle (Punkte rechnet der Server)
+  const [eternal, setEternal] = useState<StandingRow[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      loadStandings(groupId, { key: 'all', label: 'Gesamt', from: null, to: null })
+        .then(setEternal)
+        .catch(() => setEternal([]));
+    }, [groupId])
+  );
   const eternalPlace = eternal.findIndex((r) => r.playerId === playerId);
 
   if (s.played === 0 && mvpCount === 0) {
@@ -203,7 +214,7 @@ function ProfileStats({
         )}
         {eternalPlace >= 0 && (
           <ThemedText style={styles.centerText}>
-            Ewige Tabelle: Platz {eternalPlace + 1} · {eternal[eternalPlace].points} Punkte
+            Gesamttabelle: Platz {eternalPlace + 1} · {eternal[eternalPlace].points} Punkte
           </ThemedText>
         )}
         <View style={styles.row}>

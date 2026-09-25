@@ -33,8 +33,8 @@
 
 ## Paket C – Statistik & Spaß
 
-- [ ] **C1 Spielerprofil:** gibt es schon größtenteils (Bilanz, Siegquote, Verlauf, Traumduo); fehlt noch: Avatar (B1).
-- [ ] **C2 Saison-Tabelle:** Ewige Tabelle mit Jahresfilter gibt es; fehlt: Saisons mit frei wählbarem Start/Ende, Spalte Punkte pro Spiel, Punkte auf dem Server.
+- [x] **C1 Spielerprofil:** gibt es schon größtenteils (Bilanz, Siegquote, Verlauf, Traumduo); fehlt noch: Avatar (B1).
+- [x] **C2 Saison-Tabelle:** Ewige Tabelle mit Jahresfilter gibt es; fehlt: Saisons mit frei wählbarem Start/Ende, Spalte Punkte pro Spiel, Punkte auf dem Server.
 - [ ] **C3 Abzeichen:** Treue Seele, Siegesserie, Comeback-König, Jubiläum; serverseitig, bei „Rückgängig“ wieder entfernen.
 - [ ] **C4 Jahresrückblick:** Zusammenfassung des Jahres, als Bild teilbar.
 - [ ] **C5 „Warum hat sich mein Wert geändert?“:** kurzer Satz je Änderung (Siegchance, Ergebnis, Torstand).
