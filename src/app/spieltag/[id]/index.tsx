@@ -7,6 +7,7 @@ import { BigButton, SmallButton } from '@/components/controls';
 import { ErrorText } from '@/components/form';
 import { Confetti } from '@/components/confetti';
 import { MvpVote } from '@/components/mvp-vote';
+import { SessionCash } from '@/components/session-cash';
 import { ChanceBar, TeamDot, teamColor, teamName } from '@/components/team';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -186,6 +187,18 @@ export default function SessionScreen() {
     });
   };
 
+  // Alle, die an dem Tag in einem Team waren (für die Kosten, TODO D1)
+  const participants = [
+    ...new Map(
+      [
+        ...teamMembers.flat(),
+        ...detail.results.flatMap((r) => r.changes.map((c) => lookup.get(c.player_id))),
+      ]
+        .filter((p): p is Player => !!p)
+        .map((p) => [p.id, p])
+    ).values(),
+  ];
+
   // Gäste dieses Spieltags, über die noch nicht entschieden wurde (TODO A6)
   const openGuests = detail.results.length > 0 ? teamMembers.flat().filter((p) => p.is_guest && p.active) : [];
   const decideGuest = (player: Player, keep: boolean) => run(() => finishGuest(player.id, keep));
@@ -339,6 +352,10 @@ export default function SessionScreen() {
               </View>
             ))}
           </ThemedView>
+        )}
+
+        {!detail.pending && (
+          <SessionCash sessionId={detail.id} participants={participants} isAdmin={isAdmin} lookup={lookup} />
         )}
 
         <MvpVote

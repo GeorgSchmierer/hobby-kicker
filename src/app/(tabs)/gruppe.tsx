@@ -307,6 +307,12 @@ export default function GroupScreen() {
         )}
 
         <BigButton
+          title="💶 Kasse – wer schuldet was?"
+          variant="secondary"
+          style={[styles.outlined, { borderColor: theme.border }]}
+          onPress={() => router.push('/kasse')}
+        />
+        <BigButton
           title="📲 App installieren – Anleitung"
           variant="secondary"
           style={[styles.outlined, { borderColor: theme.border }]}
