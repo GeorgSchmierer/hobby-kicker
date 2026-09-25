@@ -173,7 +173,16 @@ describe('Datenbank-Sicherheit (M2)', () => {
     );
   });
 
-  it('Konto löschen: nächstes Mitglied wird Admin, Gruppe bleibt', async () => {
+  it('Letzter Admin kann sein Konto erst löschen, wenn es einen weiteren Admin gibt (D2)', async () => {
+    await assert.rejects(as(admin, () => q('select public.delete_my_account()')), /einzige Admin/);
+    assert.equal((await as(admin, () => one('select public.account_deletion_blocker() as g'))).g, 'Montagskick');
+    await as(admin, () => q('update public.group_members set role = $1 where user_id = $2', ['admin', member]));
+    const log = await one(`select details from public.audit_log where action = 'role_changed'`);
+    assert.equal(log.details.after, 'admin');
+    assert.equal((await as(admin, () => one('select public.account_deletion_blocker() as g'))).g, null);
+  });
+
+  it('Konto löschen: Gruppe bleibt, der andere Admin übernimmt', async () => {
     await as(admin, () => q('select public.delete_my_account()'));
     assert.equal((await q('select * from auth.users where id = $1', [admin])).length, 0);
     assert.equal((await q('select * from public.profiles where id = $1', [admin])).length, 0);

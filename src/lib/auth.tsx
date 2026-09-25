@@ -110,6 +110,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteAccount = useCallback(async () => {
+    // Letzter Admin einer Gruppe? Dann erst jemand anderen zum Admin machen (TODO D2) –
+    // vorher prüfen, damit nicht schon Fotos gelöscht werden
+    const { data: blocker, error: checkError } = await supabase.rpc('account_deletion_blocker');
+    if (checkError) throw checkError;
+    if (blocker) {
+      throw new Error(
+        `Du bist der einzige Admin in „${blocker}“. Mach vorher jemand anderen zum Admin (Reiter „Gruppe“ → Mitglied → Bearbeiten → Zum Admin).`
+      );
+    }
     // Fotos der eigenen Spieler mitlöschen (Speicher leert sich nicht selbst)
     const { data: own } = await supabase.from('players').select('id, avatar_path').eq('user_id', userId ?? '');
     for (const p of own ?? []) {

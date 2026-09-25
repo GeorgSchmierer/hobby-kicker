@@ -67,6 +67,9 @@ describe('Mitglieder verwalten', () => {
     await as(admin, () => q('delete from public.group_members where group_id = $1 and user_id = $2', [groupId, member]));
     const row = await one('select user_id from public.players where id = $1', [maxi]);
     assert.equal(row.user_id, null);
+    // D2: Entfernen landet im Protokoll
+    const log = await one(`select details from public.audit_log where action = 'member_removed'`);
+    assert.equal(log.details.member, member);
   });
 
   it('Letztes Mitglied verlässt die Gruppe: Löschen klappt trotz Verknüpfung', async () => {
