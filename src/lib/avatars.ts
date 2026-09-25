@@ -5,7 +5,7 @@
  */
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 
 import { newId } from './outbox';
 import { supabase } from './supabase';
@@ -15,6 +15,8 @@ export const AVATAR_SIZE = 256;
 const AVATAR_QUALITY = 0.75;
 /** Wie lange ein Bild-Link gilt (Sekunden) */
 const LINK_SECONDS = 60 * 60 * 24;
+/** Klappt das Laden der Links nicht (z. B. kurz kein Netz), nach dieser Zeit erneut versuchen */
+const RETRY_MS = 5000;
 
 const PALETTE = [
   '#E53935', '#D81B60', '#8E24AA', '#5E35B1', '#3949AB', '#1E88E5', '#00897B',
@@ -43,11 +45,9 @@ export function avatarColor(name: string): string {
 const links = new Map<string, { url: string; expires: number }>();
 const wanted = new Set<string>();
 const listeners = new Set<() => void>();
-let version = 0;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 function notify() {
-  version++;
   listeners.forEach((l) => l());
 }
 
@@ -57,7 +57,11 @@ async function fetchLinks() {
   wanted.clear();
   if (paths.length === 0) return;
   const { data, error } = await supabase.storage.from('avatars').createSignedUrls(paths, LINK_SECONDS);
-  if (error || !data) return; // z. B. offline → Initialen
+  if (error || !data) {
+    // z. B. offline → solange Initialen, später nochmal versuchen
+    setTimeout(() => paths.forEach(request), RETRY_MS);
+    return;
+  }
   const expires = Date.now() + (LINK_SECONDS - 60) * 1000;
   for (const item of data) {
     if (item.path && item.signedUrl) links.set(item.path, { url: item.signedUrl, expires });
@@ -76,17 +80,37 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-/** Gemerkter Link; fehlt er oder läuft bald ab, wird ein neuer angefragt */
-function currentLink(path: string): string | null {
+/** Gültiger gemerkter Link (null = keiner da oder abgelaufen) */
+function validLink(path: string | null | undefined): string | null {
+  if (!path) return null;
   const link = links.get(path);
-  if (!link || link.expires < Date.now()) request(path);
-  return link?.url ?? null;
+  return link && link.expires > Date.now() ? link.url : null;
 }
 
-/** Link zum Foto (null = noch nicht geladen oder kein Foto → Initialen zeigen) */
+/**
+ * Link zum Foto (null = noch nicht geladen oder kein Foto → Initialen zeigen).
+ * Der Link selbst ist der beobachtete Wert – so aktualisiert sich jede Anzeige, sobald er da ist,
+ * auch Listen, die ständig geöffnet bleiben (z. B. der Reiter „Spieltag“).
+ */
 export function useAvatarUrl(path: string | null | undefined): string | null {
-  useSyncExternalStore(subscribe, () => version, () => version);
-  return path ? currentLink(path) : null;
+  const url = useSyncExternalStore(
+    subscribe,
+    () => validLink(path),
+    () => validLink(path)
+  );
+  useEffect(() => {
+    if (path && !url) request(path);
+  }, [path, url]);
+  return url;
+}
+
+/** Link für ein gerade hochgeladenes Foto sofort holen, damit es überall gleich erscheint */
+async function prime(path: string) {
+  const { data } = await supabase.storage.from('avatars').createSignedUrl(path, LINK_SECONDS);
+  if (data?.signedUrl) {
+    links.set(path, { url: data.signedUrl, expires: Date.now() + (LINK_SECONDS - 60) * 1000 });
+    notify();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -129,6 +153,7 @@ export async function pickAndUploadAvatar(player: {
     await supabase.storage.from('avatars').remove([path]);
     throw error;
   }
+  await prime(path).catch(() => {});
   if (player.avatar_path) await supabase.storage.from('avatars').remove([player.avatar_path]);
   return true;
 }
