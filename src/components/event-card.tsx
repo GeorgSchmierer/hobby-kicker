@@ -72,7 +72,7 @@ export function EventCard({
   const { info, event, rsvps } = data;
   if (!info || !event) return null;
 
-  const active = players.filter((p) => p.active).map((p) => p.id);
+  const active = players.filter((p) => p.active && !p.is_guest).map((p) => p.id);
   const overview = rsvpOverview(active, rsvps, info.schedule.max_players);
   const myAnswer = myPlayer ? (rsvps.find((r) => r.player_id === myPlayer.id)?.attending ?? null) : null;
   const waitPlace = myPlayer ? overview.waitlist.indexOf(myPlayer.id) + 1 : 0;

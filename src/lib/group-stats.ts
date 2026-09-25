@@ -6,7 +6,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
-import { buildGames, mvpTitles, type Game, type ResultInput } from './stats';
+import { buildGames, mvpTitles, withoutGuests, type Game, type ResultInput } from './stats';
 import { supabase } from './supabase';
 
 export type StrengthChange = {
@@ -26,7 +26,7 @@ export type GroupStats = {
 };
 
 export async function loadGroupStats(groupId: string): Promise<GroupStats> {
-  const [resultsRes, votesRes] = await Promise.all([
+  const [resultsRes, votesRes, guestsRes] = await Promise.all([
     supabase
       .from('results')
       .select(
@@ -37,9 +37,13 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
       .eq('group_id', groupId)
       .order('seq'),
     supabase.from('mvp_votes').select('session_id, player_id').eq('group_id', groupId),
+    // Gäste erscheinen nicht in der Statistik (TODO A6)
+    supabase.from('players').select('id').eq('group_id', groupId).eq('is_guest', true),
   ]);
   if (resultsRes.error) throw resultsRes.error;
   if (votesRes.error) throw votesRes.error;
+  if (guestsRes.error) throw guestsRes.error;
+  const guests = new Set((guestsRes.data ?? []).map((p: any) => String(p.id)));
 
   const results: ResultInput[] = [];
   const changes: StrengthChange[] = [];
@@ -61,7 +65,7 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
         scoreA: Number(m.score_a),
       })),
     });
-    for (const c of [...(r.rating_changes ?? [])].sort((a: any, b: any) => Number(a.id) - Number(b.id))) {
+    for (const c of [...(r.rating_changes ?? [])].filter((c: any) => !guests.has(c.player_id)).sort((a: any, b: any) => Number(a.id) - Number(b.id))) {
       changes.push({
         seq,
         playedOn,
@@ -72,9 +76,11 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
     }
   }
   const mvp = mvpTitles(
-    (votesRes.data ?? []).map((v: any) => ({ sessionId: v.session_id, playerId: v.player_id }))
+    (votesRes.data ?? [])
+      .filter((v: any) => !guests.has(v.player_id))
+      .map((v: any) => ({ sessionId: v.session_id, playerId: v.player_id }))
   );
-  return { games: buildGames(results), changes, mvp };
+  return { games: withoutGuests(buildGames(results), guests), changes, mvp };
 }
 
 /** Statistik der Gruppe, wird beim Öffnen des Bildschirms frisch geladen */

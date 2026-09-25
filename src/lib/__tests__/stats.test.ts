@@ -10,6 +10,7 @@ import {
   sessionMvps,
   strengthHistory,
   summarize,
+  withoutGuests,
   type ResultInput,
 } from '../stats';
 
@@ -227,5 +228,30 @@ describe('eternalTable', () => {
 
   it('listet die Jahre, neuestes zuerst', () => {
     expect(seasons(games)).toEqual(['2027', '2026']);
+  });
+});
+
+describe('Gäste in der Statistik', () => {
+  const games = buildGames([
+    {
+      id: 'r1',
+      seq: 1,
+      kind: 'match',
+      playedOn: '2026-09-25',
+      matches: [{ teamA: ['a', 'gast'], teamB: ['b', 'c'], scoreA: 1 }],
+    },
+  ]);
+  const filtered = withoutGuests(games, new Set(['gast']));
+
+  it('Gäste haben keine eigenen Spiele in der Statistik', () => {
+    expect(filtered.some((g) => g.playerId === 'gast')).toBe(false);
+    expect(eternalTable(filtered).map((r) => r.playerId)).not.toContain('gast');
+  });
+
+  it('die Spiele der anderen zählen weiter, ohne den Gast als Mit- oder Gegenspieler', () => {
+    expect(summarize(filtered, 'a').wins).toBe(1);
+    expect(summarize(filtered, 'b').losses).toBe(1);
+    expect(filtered.find((g) => g.playerId === 'a')!.teammates).toEqual([]);
+    expect(filtered.find((g) => g.playerId === 'b')!.opponents).toEqual(['a']);
   });
 });

@@ -43,7 +43,18 @@ export type ResultOp = {
   createdAt: string;
 };
 
-export type Op = StartOp | ResultOp;
+export type GuestOp = {
+  kind: 'guest';
+  /** = ID des Spielers (bei wiederkehrendem Gast die alte ID) */
+  id: string;
+  groupId: string;
+  name: string;
+  /** Startwert für Abwehr und Angriff */
+  rating: number;
+  createdAt: string;
+};
+
+export type Op = StartOp | ResultOp | GuestOp;
 
 export type Notice = { id: string; text: string };
 
@@ -125,6 +136,16 @@ async function send(op: Op): Promise<void> {
 }
 
 async function request(op: Op): Promise<void> {
+  if (op.kind === 'guest') {
+    const { error } = await supabase.rpc('add_guest', {
+      p_id: op.id,
+      p_group: op.groupId,
+      p_name: op.name,
+      p_rating: op.rating,
+    });
+    if (error) throw error;
+    return;
+  }
   const { error } =
     op.kind === 'start'
       ? await supabase.rpc('start_session_v2', {
@@ -198,6 +219,7 @@ export function flush(): Promise<void> {
 function describeFailure(op: Op, error: unknown): string {
   const reason = errorMessage(error).replace(/^DOPPELT:\s*/, '');
   if (op.kind === 'start') return `Ein ohne Netz gestarteter Spieltag wurde nicht gespeichert: ${reason}`;
+  if (op.kind === 'guest') return `Der Gast „${op.name}“ wurde nicht gespeichert: ${reason}`;
   return `Ein ohne Netz eingetragenes Ergebnis wurde verworfen: ${reason}`;
 }
 
@@ -244,6 +266,10 @@ export function pendingStart(sessionId: string): StartOp | undefined {
 
 export function pendingStarts(groupId: string): StartOp[] {
   return state.ops.filter((o): o is StartOp => o.kind === 'start' && o.groupId === groupId);
+}
+
+export function pendingGuests(groupId: string, ops: Op[] = state.ops): GuestOp[] {
+  return ops.filter((o): o is GuestOp => o.kind === 'guest' && o.groupId === groupId);
 }
 
 export function pendingResults(sessionId: string): ResultOp[] {

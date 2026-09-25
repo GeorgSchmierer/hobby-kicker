@@ -16,10 +16,12 @@ export function OfflineBanner() {
   const { ops, offline, recovered, notices } = useOutbox();
 
   const results = ops.filter((o) => o.kind === 'result').length;
-  const starts = ops.length - results;
+  const starts = ops.filter((o) => o.kind === 'start').length;
+  const guests = ops.filter((o) => o.kind === 'guest').length;
   const waiting = [
     results > 0 && `${results} Ergebnis${results === 1 ? '' : 'se'}`,
     starts > 0 && `${starts === 1 ? 'ein Spieltag' : `${starts} Spieltage`}`,
+    guests > 0 && `${guests === 1 ? 'ein Gast' : `${guests} Gäste`}`,
   ]
     .filter(Boolean)
     .join(' und ');

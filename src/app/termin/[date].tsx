@@ -65,7 +65,7 @@ export default function EventScreen() {
 
   const { schedule } = info;
   const cancelled = info.cancelled.includes(date);
-  const active = players.filter((p) => p.active).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const active = players.filter((p) => p.active && !p.is_guest).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   const byId = new Map(active.map((p) => [p.id, p]));
   const overview = rsvpOverview(
     active.map((p) => p.id),

@@ -8,7 +8,7 @@ import {
   relativeDay,
   rsvpOverview,
   upcomingDates,
-} from './schedule';
+} from '../schedule';
 
 describe('Datum', () => {
   it('rechnet in deutscher Zeit (kurz nach Mitternacht schon der neue Tag)', () => {

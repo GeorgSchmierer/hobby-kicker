@@ -144,7 +144,15 @@ function LateForm({ detail, reload }: { detail: SessionDetail; reload: () => Pro
   return (
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="smallBold">Wer kommt dazu?</ThemedText>
+        <View style={styles.row}>
+          <ThemedText type="smallBold" style={styles.flex}>
+            Wer kommt dazu?
+          </ThemedText>
+          <SmallButton
+            title="+ Gast"
+            onPress={() => router.push({ pathname: '/gast', params: { spieltag: detail.id } })}
+          />
+        </View>
         {available.length === 0 ? (
           <ThemedText themeColor="textSecondary">
             Alle aktiven Spieler sind schon in einem Team.
@@ -154,7 +162,7 @@ function LateForm({ detail, reload }: { detail: SessionDetail; reload: () => Pro
             {available.map((p) => (
               <Chip
                 key={p.id}
-                title={p.name}
+                title={p.is_guest ? `${p.name} (Gast)` : p.name}
                 selected={selected?.id === p.id}
                 onPress={() => {
                   setSelected(selected?.id === p.id ? null : p);

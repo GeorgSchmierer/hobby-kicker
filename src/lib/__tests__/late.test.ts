@@ -1,5 +1,5 @@
-import { bestSwap, directPlacements, suggestPlacement } from './late';
-import { splitCost, type RatedPlayer } from './teams';
+import { bestSwap, directPlacements, suggestPlacement } from '../late';
+import { splitCost, type RatedPlayer } from '../teams';
 
 const p = (id: string, value: number, attack = value): RatedPlayer => ({ id, defense: value, attack });
 

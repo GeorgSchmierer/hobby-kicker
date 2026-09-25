@@ -1,4 +1,4 @@
-import { nextGame, roundSize, upcomingGames, type Pairing } from './match-plan';
+import { nextGame, roundSize, upcomingGames, type Pairing } from '../match-plan';
 
 /** Spielt `count` Partien nach Plan und gibt den Verlauf zurück */
 function simulate(teamCount: number, count: number, start: Pairing[] = []): Pairing[] {

@@ -28,7 +28,8 @@ export default function TableScreen() {
   // Ewige Tabelle: '' = alle Jahre, sonst z. B. '2026'
   const [year, setYear] = useState('');
 
-  const active = players.filter((p) => p.active);
+  // Gäste erscheinen nicht in der Tabelle (TODO A6)
+  const active = players.filter((p) => p.active && !p.is_guest);
   const rows = active.map((p) => ({
     player: p,
     strength: strength(p),

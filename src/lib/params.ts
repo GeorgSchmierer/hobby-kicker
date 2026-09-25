@@ -37,3 +37,12 @@ export const LATE_PARAMS = {
   /** Ein Tausch wird nur vorgeschlagen, wenn er die Kosten um mindestens so viel senkt. */
   swapMinGain: 0.5,
 } as const;
+
+/** Gastspieler (TODO A6): Startwert für Abwehr und Angriff je Stufe */
+export const GUEST_LEVELS = [
+  { key: 'weak', label: 'schwach', rating: 4 },
+  { key: 'medium', label: 'mittel', rating: 6 },
+  { key: 'strong', label: 'stark', rating: 8 },
+] as const;
+/** Vorauswahl beim Anlegen eines Gastes (Wunsch Projektinhaber) */
+export const GUEST_DEFAULT_LEVEL = 'medium';

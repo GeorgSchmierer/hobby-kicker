@@ -25,7 +25,7 @@ const MIN_PER_TEAM = 2;
 
 export default function MatchdayScreen() {
   const theme = useTheme();
-  const { current, isAdmin, players, playersLoaded, refreshPlayers } = useGroup();
+  const { current, isAdmin, players, playersLoaded, refreshPlayers, finishGuest } = useGroup();
   const store = useStore();
   const groupId = current!.id;
   const presentIds = store.presentIdsFor(groupId);
@@ -58,7 +58,7 @@ export default function MatchdayScreen() {
   const eventToday = eventData?.info && eventData.event?.daysAway === 0 ? eventData : null;
   const confirmedToday = eventToday
     ? rsvpOverview(
-        activePlayers.map((p) => p.id),
+        activePlayers.filter((p) => !p.is_guest).map((p) => p.id),
         eventToday.rsvps,
         eventToday.info!.schedule.max_players
       ).attending
@@ -71,8 +71,23 @@ export default function MatchdayScreen() {
     if (!storeLoaded || !playersLoaded || !todayDate || alreadyPrefilled || !confirmedKey) return;
     prefillFromRsvps(groupId, todayDate, confirmedKey.split(','));
   }, [storeLoaded, playersLoaded, todayDate, alreadyPrefilled, confirmedKey, groupId, prefillFromRsvps]);
+  // Gäste haben keine Zusagen – sie bleiben beim Übernehmen angehakt
+  const presentGuests = present.filter((p) => p.is_guest).map((p) => p.id);
+  const presentRegulars = present.filter((p) => !p.is_guest).map((p) => p.id);
   const presentMatchesRsvps =
-    confirmedToday.length === presentIds.length && confirmedToday.every((id) => presentIds.includes(id));
+    confirmedToday.length === presentRegulars.length &&
+    confirmedToday.every((id) => presentRegulars.includes(id));
+
+  // Gast wieder aus der Liste nehmen (wird ausgeblendet, nicht gelöscht)
+  const hideGuest = async (player: Player) => {
+    setEventError(null);
+    try {
+      await finishGuest(player.id, false);
+      store.setPresent(groupId, player.id, false);
+    } catch (e) {
+      setEventError(errorMessage(e));
+    }
+  };
 
   const answer = async (attending: boolean | null) => {
     if (!eventData?.event || !myPlayer) return;
@@ -171,6 +186,9 @@ export default function MatchdayScreen() {
           <ThemedText type="smallBold" style={styles.flex}>
             Wer ist da? {present.length} von {activePlayers.length}
           </ThemedText>
+          <Pressable onPress={() => router.push('/gast')} hitSlop={12}>
+            <ThemedText type="linkPrimary">+ Gast</ThemedText>
+          </Pressable>
           <Pressable onPress={() => store.setPresentIds(groupId, activePlayers.map((p) => p.id))} hitSlop={12}>
             <ThemedText type="linkPrimary">Alle</ThemedText>
           </Pressable>
@@ -182,7 +200,7 @@ export default function MatchdayScreen() {
         {todayDate && confirmedToday.length > 0 && !presentMatchesRsvps && (
           <Pressable
             accessibilityRole="button"
-            onPress={() => prefillFromRsvps(groupId, todayDate, confirmedToday)}
+            onPress={() => prefillFromRsvps(groupId, todayDate, [...confirmedToday, ...presentGuests])}
             hitSlop={8}>
             <ThemedText type="linkPrimary">
               📋 {confirmedToday.length} Zusagen für heute als Anwesenheit übernehmen
@@ -198,6 +216,7 @@ export default function MatchdayScreen() {
               player={item}
               present={presentIds.includes(item.id)}
               onToggle={() => store.setPresent(groupId, item.id, !presentIds.includes(item.id))}
+              onHideGuest={() => hideGuest(item)}
             />
           )}
           contentContainerStyle={styles.list}
@@ -219,10 +238,12 @@ function AttendanceRow({
   player,
   present,
   onToggle,
+  onHideGuest,
 }: {
   player: Player;
   present: boolean;
   onToggle: () => void;
+  onHideGuest: () => void;
 }) {
   const theme = useTheme();
   return (
@@ -247,8 +268,26 @@ function AttendanceRow({
         ]}>
         {present && <ThemedText style={{ color: theme.onPrimary, fontWeight: 700 }}>✓</ThemedText>}
       </View>
-      <ThemedText style={[styles.name, styles.flex]}>{player.name}</ThemedText>
+      <ThemedText style={[styles.name, styles.flex]}>
+        {player.name}
+        {player.is_guest && (
+          <ThemedText type="small" themeColor="textSecondary">
+            {'  '}Gast
+          </ThemedText>
+        )}
+      </ThemedText>
       <ThemedText themeColor="textSecondary">{formatRating(strength(player))}</ThemedText>
+      {player.is_guest && !present && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Gast ${player.name} aus der Liste nehmen`}
+          onPress={onHideGuest}
+          hitSlop={10}>
+          <ThemedText themeColor="textSecondary" style={{ fontWeight: 700 }}>
+            ✕
+          </ThemedText>
+        </Pressable>
+      )}
     </Pressable>
   );
 }

@@ -12,12 +12,12 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 const mockRpc = jest.fn();
-jest.mock('./supabase', () => ({
+jest.mock('../supabase', () => ({
   supabase: { rpc: (...args: unknown[]) => mockRpc(...args) },
   errorMessage: (e: { message?: string }) => e?.message ?? '',
 }));
 
-type Outbox = typeof import('./outbox');
+type Outbox = typeof import('../outbox');
 
 const offline = () => Promise.resolve({ error: { message: 'TypeError: Failed to fetch', code: '' } });
 const ok = () => Promise.resolve({ error: null });
@@ -27,7 +27,7 @@ function load(): Outbox {
   let mod!: Outbox;
   jest.isolateModules(() => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- frisches Modul je Test
-    mod = require('./outbox');
+    mod = require('../outbox');
   });
   return mod;
 }

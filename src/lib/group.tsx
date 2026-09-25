@@ -16,6 +16,7 @@ import {
 
 import { useAuth } from './auth';
 import { withCache } from './offline-cache';
+import { newId, pendingGuests, submit, useOutbox } from './outbox';
 import { clampRating } from './ratings';
 import { supabase } from './supabase';
 
@@ -37,6 +38,8 @@ export type Player = {
   games_played: number;
   /** verknüpftes Nutzerkonto (Mitglied), falls zugeordnet */
   user_id: string | null;
+  /** Gastspieler: wird eingeteilt und gewertet, aber nicht in Tabelle/Statistik gezeigt */
+  is_guest: boolean;
 };
 
 export type Member = {
@@ -71,6 +74,10 @@ type GroupState = {
   setMemberName: (userId: string, name: string) => Promise<void>;
   /** Mitglied einem Spieler zuordnen (null = Zuordnung aufheben) */
   linkPlayer: (userId: string, playerId: string | null) => Promise<void>;
+  /** Gast anlegen (auch ohne Netz); gibt die Spieler-ID zurück */
+  addGuest: (name: string, rating: number) => Promise<string>;
+  /** Nach dem Spieltag: Gast übernehmen (nur Admin) oder ausblenden */
+  finishGuest: (playerId: string, keep: boolean) => Promise<void>;
 };
 
 const GroupContext = createContext<GroupState | null>(null);
@@ -86,6 +93,7 @@ function toPlayer(row: Record<string, unknown>): Player {
     active: Boolean(row.active),
     games_played: Number(row.games_played),
     user_id: row.user_id ? String(row.user_id) : null,
+    is_guest: Boolean(row.is_guest),
   };
 }
 
@@ -150,7 +158,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     const list = await withCache(`players/${currentId}`, async () => {
       const { data, error } = await supabase
         .from('players')
-        .select('id, name, defense, attack, active, games_played, user_id')
+        .select('id, name, defense, attack, active, games_played, user_id, is_guest')
         .eq('group_id', currentId);
       if (error) throw error;
       return (data ?? []).map(toPlayer);
@@ -159,11 +167,64 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     setPlayersFor(currentId);
   }, [currentId]);
 
+  // Offline-Modus: neu laden, sobald Wartendes beim Server angekommen ist (neue Werte, Gäste)
+  const { ops, syncCount } = useOutbox();
   useEffect(() => {
     // Daten laden: Zustand ändert sich erst nach der Antwort vom Server
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshPlayers().catch((error) => console.warn('Spieler konnten nicht geladen werden', error));
-  }, [refreshPlayers]);
+  }, [refreshPlayers, syncCount]);
+
+  // Noch nicht angekommene Gäste schon anzeigen (ohne Netz angelegt)
+  const mergedPlayers = useMemo(() => {
+    const loadedPlayers = playersFor === currentId ? players : [];
+    if (!currentId) return loadedPlayers;
+    const waiting = pendingGuests(currentId, ops);
+    if (waiting.length === 0) return loadedPlayers;
+    const byId = new Map(loadedPlayers.map((p) => [p.id, p]));
+    for (const g of waiting) {
+      const known = byId.get(g.id);
+      byId.set(
+        g.id,
+        known
+          ? { ...known, active: true }
+          : {
+              id: g.id,
+              name: g.name,
+              defense: g.rating,
+              attack: g.rating,
+              active: true,
+              games_played: 0,
+              user_id: null,
+              is_guest: true,
+            }
+      );
+    }
+    return [...byId.values()];
+  }, [players, playersFor, currentId, ops]);
+
+  const addGuest = useCallback(
+    async (name: string, rating: number) => {
+      if (!currentId) throw new Error('Keine Gruppe gewählt.');
+      const trimmed = name.trim();
+      const same = mergedPlayers.find((p) => p.name.trim().toLowerCase() === trimmed.toLowerCase());
+      if (same && !same.is_guest) throw new Error('Diesen Namen gibt es in der Gruppe schon.');
+      // War schon mal da: alten Gast wieder einblenden (mit seinen Werten von damals)
+      const id = same?.id ?? newId();
+      await submit({ kind: 'guest', id, groupId: currentId, name: trimmed, rating, createdAt: new Date().toISOString() });
+      return id;
+    },
+    [currentId, mergedPlayers]
+  );
+
+  const finishGuest = useCallback(
+    async (playerId: string, keep: boolean) => {
+      const { error } = await supabase.rpc('finish_guest', { p_player: playerId, p_keep: keep });
+      if (error) throw error;
+      await refreshPlayers();
+    },
+    [refreshPlayers]
+  );
 
   const createGroup = useCallback(
     async (name: string) => {
@@ -318,7 +379,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       groups,
       current,
       isAdmin: current?.role === 'admin',
-      players: playersFor === currentId ? players : [],
+      players: mergedPlayers,
       playersLoaded: playersFor === currentId && currentId !== null,
       selectGroup,
       refreshGroups,
@@ -335,12 +396,13 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       removeMember,
       setMemberName,
       linkPlayer,
+      addGuest,
+      finishGuest,
     }),
     [
       groups,
       current,
       currentId,
-      players,
       playersFor,
       selectGroup,
       refreshGroups,
@@ -357,6 +419,9 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       removeMember,
       setMemberName,
       linkPlayer,
+      addGuest,
+      finishGuest,
+      mergedPlayers,
     ]
   );
 

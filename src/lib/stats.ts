@@ -324,3 +324,18 @@ export function eternalTable(games: Game[], year?: string): EternalRow[] {
 export function seasons(games: Game[]): string[] {
   return [...new Set(games.map((g) => g.playedOn.slice(0, 4)).filter(Boolean))].sort().reverse();
 }
+
+/**
+ * Gäste (TODO A6) erscheinen nicht in Tabelle und Statistik: Ihre eigenen Spiele fallen weg,
+ * und als Mit- oder Gegenspieler werden sie nicht genannt. Die Spiele der anderen zählen weiter.
+ */
+export function withoutGuests(games: Game[], guestIds: Set<string>): Game[] {
+  if (guestIds.size === 0) return games;
+  return games
+    .filter((g) => !guestIds.has(g.playerId))
+    .map((g) => ({
+      ...g,
+      teammates: g.teammates.filter((id) => !guestIds.has(id)),
+      opponents: g.opponents.filter((id) => !guestIds.has(id)),
+    }));
+}

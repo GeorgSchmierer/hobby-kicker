@@ -20,7 +20,8 @@ export default function PlayersScreen() {
       refreshPlayers().catch(() => {});
     }, [refreshPlayers])
   );
-  const sorted = [...players].sort(
+  // Gäste stehen nicht in der Spielerliste (TODO A6)
+  const sorted = players.filter((p) => !p.is_guest).sort(
     (a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'de')
   );
 

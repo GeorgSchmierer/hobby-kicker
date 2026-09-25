@@ -38,7 +38,7 @@ export default function SessionScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session: auth } = useAuth();
-  const { current, isAdmin, players, refreshPlayers } = useGroup();
+  const { current, isAdmin, players, refreshPlayers, finishGuest } = useGroup();
   const [detail, setDetail] = useState<SessionDetail | null | undefined>(undefined);
   const [latestId, setLatestId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -183,6 +183,10 @@ export default function SessionScreen() {
     });
   };
 
+  // Gäste dieses Spieltags, über die noch nicht entschieden wurde (TODO A6)
+  const openGuests = detail.results.length > 0 ? teamMembers.flat().filter((p) => p.is_guest && p.active) : [];
+  const decideGuest = (player: Player, keep: boolean) => run(() => finishGuest(player.id, keep));
+
   const removeSession = async () => {
     const ok = await confirmAction(
       'Spieltag löschen?',
@@ -306,6 +310,26 @@ export default function SessionScreen() {
               />
             ))}
           </View>
+        )}
+
+        {openGuests.length > 0 && (
+          <ThemedView type="backgroundElement" style={styles.guestCard}>
+            <ThemedText style={styles.teamName}>👋 Gäste übernehmen?</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {isAdmin
+                ? 'Soll ein Gast künftig als fester Spieler dabei sein (mit seinen heutigen Werten)?'
+                : 'Als feste Spieler übernehmen kann ein Admin. „Nur Gast“ blendet ihn aus.'}
+            </ThemedText>
+            {openGuests.map((p) => (
+              <View key={p.id} style={styles.guestRow}>
+                <ThemedText style={[styles.flex, styles.guestName]}>{p.name}</ThemedText>
+                {isAdmin && (
+                  <SmallButton title="Übernehmen" disabled={busy} onPress={() => decideGuest(p, true)} />
+                )}
+                <SmallButton title="Nur Gast" disabled={busy} onPress={() => decideGuest(p, false)} />
+              </View>
+            ))}
+          </ThemedView>
         )}
 
         <MvpVote
@@ -554,6 +578,9 @@ const styles = StyleSheet.create({
   changeValues: { alignItems: 'flex-end' },
   changeDiff: { width: 56, textAlign: 'right', fontSize: 16, fontWeight: 700 },
   undo: { marginTop: Spacing.two, borderWidth: 1 },
+  guestCard: { borderRadius: 14, padding: Spacing.three, gap: Spacing.two },
+  guestRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  guestName: { fontSize: 17, fontWeight: 600 },
   planRow: {
     flexDirection: 'row',
     alignItems: 'center',
