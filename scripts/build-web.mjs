@@ -43,11 +43,12 @@ const files = [
     .filter((f) => !skip.has(f)),
 ];
 const template = readFileSync(join(root, 'scripts', 'sw-template.js'), 'utf8');
-writeFileSync(
-  join(dist, 'sw.js'),
-  template
-    .replace("'__VERSION__'", JSON.stringify(version || String(Date.now())))
-    .replace('__FILES__', JSON.stringify(files, null, 2))
-);
+const sw = template
+  .replace("'__VERSION__'", JSON.stringify(version || String(Date.now())))
+  .replace('const FILES = __FILES__;', `const FILES = ${JSON.stringify(files, null, 2)};`);
+if (/= __FILES__|= '__VERSION__'/.test(sw)) {
+  throw new Error('sw.js: Platzhalter wurden nicht ersetzt – scripts/sw-template.js prüfen');
+}
+writeFileSync(join(dist, 'sw.js'), sw);
 
 console.log(`✓ Version ${version.slice(0, 7) || '(ohne Kennung)'} gebaut, ${files.length} Dateien für offline`);
