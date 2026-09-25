@@ -8,6 +8,8 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useGroup } from '@/lib/group';
+import { reviewYears } from '@/lib/review';
+import { berlinToday } from '@/lib/schedule';
 import { formatDate, listSessions, type SessionSummary } from '@/lib/sessions';
 import { errorMessage } from '@/lib/supabase';
 
@@ -35,7 +37,30 @@ export default function HistoryScreen() {
         data={sessions ?? []}
         keyExtractor={(s) => s.id}
         contentContainerStyle={styles.content}
-        ListHeaderComponent={<ErrorText message={error} />}
+        ListHeaderComponent={
+          <>
+            <ErrorText message={error} />
+            {/* Jahresrückblick (TODO C4): vergangene Jahre, das laufende ab Dezember */}
+            {reviewYears(
+              [...new Set((sessions ?? []).filter((s) => s.result_count > 0).map((s) => s.played_on.slice(0, 4)))]
+                .sort()
+                .reverse(),
+              berlinToday()
+            ).map((year) => (
+              <Pressable
+                key={year}
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: '/rueckblick/[year]', params: { year } })}
+                style={({ pressed }) => [
+                  styles.review,
+                  { borderColor: theme.primary, opacity: pressed ? 0.7 : 1 },
+                ]}>
+                <ThemedText style={[styles.date, styles.flex]}>🎆 Jahresrückblick {year}</ThemedText>
+                <ThemedText style={[styles.date, { color: theme.primary }]}>›</ThemedText>
+              </Pressable>
+            ))}
+          </>
+        }
         ListEmptyComponent={
           sessions ? (
             <ThemedText themeColor="textSecondary" style={styles.empty}>
@@ -72,6 +97,15 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  review: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 56,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 14,
+    borderWidth: 2,
+    marginBottom: Spacing.two,
+  },
   screen: { flex: 1 },
   content: {
     width: '100%',

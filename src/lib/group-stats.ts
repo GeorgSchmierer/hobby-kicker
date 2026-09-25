@@ -35,6 +35,8 @@ export type GroupStats = {
   explained: ExplainedChange[];
   /** gespielte Spieltage mit Teilnehmern (ohne Gäste) – für die Anwesenheitsquote */
   sessions: PlayedSession[];
+  /** Tore je Partie (nur mit Torstand) – für den Jahresrückblick */
+  goals: { playedOn: string; goals: number }[];
   /** Anzahl „MVP des Tages“-Titel je Spieler */
   mvp: Map<string, number>;
 };
@@ -65,6 +67,7 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
   const changes: StrengthChange[] = [];
   const explained: ExplainedChange[] = [];
   const played = new Map<string, PlayedSession>();
+  const goals: { playedOn: string; goals: number }[] = [];
   for (const r of (resultsRes.data ?? []) as any[]) {
     const playedOn: string = r.sessions?.played_on ?? '';
     const seq = Number(r.seq);
@@ -98,6 +101,9 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
       },
       scaleD
     );
+    for (const m of r.matches ?? []) {
+      if (m.goals_a !== null && m.goals_b !== null) goals.push({ playedOn, goals: m.goals_a + m.goals_b });
+    }
     const session =
       played.get(r.session_id) ?? { sessionId: r.session_id, playedOn, participants: [] as string[] };
     for (const c of r.rating_changes ?? []) {
@@ -129,6 +135,7 @@ export async function loadGroupStats(groupId: string): Promise<GroupStats> {
     changes,
     explained,
     sessions: [...played.values()],
+    goals,
     mvp,
   };
 }
