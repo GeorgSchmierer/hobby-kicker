@@ -25,7 +25,8 @@ import { errorMessage } from '@/lib/supabase';
 type Mode = 'match' | 'tournament';
 
 export default function RecordResultScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // a/b: vorausgewählte Teams (z. B. aus dem Spielplan)
+  const { id, a, b } = useLocalSearchParams<{ id: string; a?: string; b?: string }>();
   const [teams, setTeams] = useState<SessionTeam[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +44,20 @@ export default function RecordResultScreen() {
       </ThemedView>
     );
   }
-  return <ResultForm sessionId={id} teams={teams} />;
+  return <ResultForm sessionId={id} teams={teams} initialA={a} initialB={b} />;
 }
 
-function ResultForm({ sessionId, teams }: { sessionId: string; teams: SessionTeam[] }) {
+function ResultForm({
+  sessionId,
+  teams,
+  initialA,
+  initialB,
+}: {
+  sessionId: string;
+  teams: SessionTeam[];
+  initialA?: string;
+  initialB?: string;
+}) {
   const theme = useTheme();
   const { setCelebration } = useStore();
   const { players } = useGroup();
@@ -57,8 +68,12 @@ function ResultForm({ sessionId, teams }: { sessionId: string; teams: SessionTea
       return sum + (p ? (p.defense + p.attack) / 2 : 0);
     }, 0);
   const [mode, setMode] = useState<Mode>('match');
-  const [teamA, setTeamA] = useState<SessionTeam | null>(teams[0] ?? null);
-  const [teamB, setTeamB] = useState<SessionTeam | null>(teams.length === 2 ? teams[1] : null);
+  const presetA = teams.find((t) => t.id === initialA);
+  const presetB = teams.find((t) => t.id === initialB && t.id !== presetA?.id);
+  const [teamA, setTeamA] = useState<SessionTeam | null>(presetA ?? teams[0] ?? null);
+  const [teamB, setTeamB] = useState<SessionTeam | null>(
+    presetB ?? (teams.length === 2 ? teams[1] : null)
+  );
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [withGoals, setWithGoals] = useState(false);
   const [goalsA, setGoalsA] = useState(0);

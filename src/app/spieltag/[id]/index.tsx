@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { confirmAction } from '@/lib/confirm';
 import { averageWinChances, formatPercent, funTeamNames, teamsShareText } from '@/lib/fun';
 import { useGroup, type Player } from '@/lib/group';
+import { upcomingGames, type Pairing } from '@/lib/match-plan';
 import { formatRating } from '@/lib/ratings';
 import {
   deleteSession,
@@ -106,6 +107,21 @@ export default function SessionScreen() {
   const chances = averageWinChances(totals, scaleD);
   const funNames = funTeamNames(splitKey(detail.teams.map((t) => t.playerIds)), detail.teams.length);
 
+  // Spielplan (ab 3 Teams): Teams über ihre Position ansprechen
+  const ordered = [...detail.teams].sort((x, y) => x.idx - y.idx);
+  const position = new Map(ordered.map((t, i) => [t.id, i]));
+  const history: Pairing[] = detail.results
+    .filter((r) => r.kind === 'match' && r.matches[0])
+    .map((r) => [position.get(r.matches[0].team_a) ?? 0, position.get(r.matches[0].team_b) ?? 1]);
+  const plan = ordered.length > 2 ? upcomingGames(ordered.length, history) : [];
+  const openResultForm = (game?: { a: number; b: number }) =>
+    router.push({
+      pathname: '/spieltag/[id]/ergebnis',
+      params: game
+        ? { id: detail.id, a: ordered[game.a].id, b: ordered[game.b].id }
+        : { id: detail.id },
+    });
+
   const share = async () => {
     const text = teamsShareText({
       groupName: current.name,
@@ -190,9 +206,7 @@ export default function SessionScreen() {
         <BigButton
           title="⚽ Ergebnis eintragen"
           disabled={busy}
-          onPress={() =>
-            router.push({ pathname: '/spieltag/[id]/ergebnis', params: { id: detail.id } })
-          }
+          onPress={() => openResultForm(plan[0])}
         />
         <View style={styles.buttonRow}>
           <BigButton
@@ -209,6 +223,56 @@ export default function SessionScreen() {
           />
         </View>
         {shareInfo && <ThemedText type="small">{shareInfo}</ThemedText>}
+
+        {plan.length > 0 && (
+          <View style={styles.section}>
+            <ThemedText type="smallBold">Spielplan</ThemedText>
+            {plan.map((game, i) => {
+              const a = ordered[game.a].idx;
+              const b = ordered[game.b].idx;
+              const next = i === 0;
+              return (
+                <Pressable
+                  key={i}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ergebnis für ${teamColor(a).name} gegen ${teamColor(b).name} eintragen`}
+                  onPress={() => openResultForm(game)}
+                  style={({ pressed }) => [
+                    styles.planRow,
+                    {
+                      backgroundColor: theme.backgroundElement,
+                      borderColor: next ? theme.primary : 'transparent',
+                      opacity: pressed ? 0.7 : 1,
+                    },
+                  ]}>
+                  <View style={styles.flex}>
+                    <View style={styles.row}>
+                      <ThemedText style={styles.planNumber}>
+                        {next ? '▶ ' : ''}Spiel {history.length + i + 1}
+                      </ThemedText>
+                      <TeamDot idx={a} />
+                      <ThemedText style={styles.planTeam}>{teamColor(a).name}</ThemedText>
+                      <ThemedText themeColor="textSecondary">–</ThemedText>
+                      <TeamDot idx={b} />
+                      <ThemedText style={styles.planTeam}>{teamColor(b).name}</ThemedText>
+                    </View>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {game.pausing.map((t) => teamColor(ordered[t].idx).name).join(' und ')}{' '}
+                      {game.pausing.length === 1 ? 'pausiert' : 'pausieren'}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={{ color: theme.primary, fontWeight: 700 }}>Eintragen ›</ThemedText>
+                </Pressable>
+              );
+            })}
+            <ThemedText type="small" themeColor="textSecondary">
+              {ordered.length === 4
+                ? 'Jeder spielt gleich oft und einmal gegen jeden. Mit zwei Plätzen: jeweils zwei Spiele gleichzeitig (1 und 2, 3 und 4 …). '
+                : 'Jeder spielt gleich oft und einmal gegen jeden, niemand pausiert zweimal hintereinander. '}
+              Wird mal anders gespielt, passt sich der Plan an.
+            </ThemedText>
+          </View>
+        )}
 
         {/* Ergebnisse, neueste zuerst */}
         {newestFirst.length > 0 && (
@@ -458,4 +522,16 @@ const styles = StyleSheet.create({
   changeValues: { alignItems: 'flex-end' },
   changeDiff: { width: 56, textAlign: 'right', fontSize: 16, fontWeight: 700 },
   undo: { marginTop: Spacing.two, borderWidth: 1 },
+  planRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    minHeight: 56,
+    padding: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
+  planNumber: { fontSize: 16, fontWeight: 700, marginRight: Spacing.one },
+  planTeam: { fontSize: 17, fontWeight: 600 },
 });
